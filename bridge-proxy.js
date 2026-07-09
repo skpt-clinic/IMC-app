@@ -9,11 +9,12 @@
 
   const pendingCalls = new Map();
   const queuedCalls = [];
-  const CALL_TIMEOUT_MS = 20000;
+  const CALL_TIMEOUT_MS = 60000;
   let callId = 0;
   let bridgeWindow = null;
   let bridgeWindowNavigated = false;
   let bridgeReady = false;
+  let isShowingConnectPrompt = false;
 
   function createError(payload) {
     if (!payload) return new Error('Unknown GAS bridge error');
@@ -23,78 +24,134 @@
     return error;
   }
 
-  let bridgeIframe = null;
-
   function ensureBridgeWindow() {
-    if (bridgeWindow) {
-      if (bridgeIframe) return bridgeWindow;
-      if (!bridgeWindow.closed) return bridgeWindow;
-    }
+    if (bridgeWindow && !bridgeWindow.closed) return bridgeWindow;
 
-    // Try finding existing iframe
-    bridgeIframe = document.getElementById('gas-bridge-iframe');
-    if (bridgeIframe) {
-      bridgeWindow = bridgeIframe.contentWindow;
-      return bridgeWindow;
-    }
-
+    // We must use a popup because Google Apps Script set X-Frame-Options to sameorigin during redirects.
     try {
-      bridgeIframe = document.createElement('iframe');
-      bridgeIframe.id = 'gas-bridge-iframe';
-      bridgeIframe.style.display = 'none';
-      bridgeIframe.style.width = '0';
-      bridgeIframe.style.height = '0';
-      bridgeIframe.style.border = 'none';
-      document.body.appendChild(bridgeIframe);
-      bridgeWindow = bridgeIframe.contentWindow;
-    } catch (e) {
-      // Fallback to popup if iframe fails or is not supported
       bridgeWindow = window.open(
         'about:blank',
         'gasBridge',
         'popup=yes,width=1,height=1,left=0,top=0'
       );
+    } catch (e) {
+      bridgeWindow = null;
+    }
+
+    if (!bridgeWindow) return null;
+
+    try {
+      bridgeWindow.focus();
+    } catch (error) {
+      // Ignore focus errors on browsers that block it.
     }
 
     return bridgeWindow;
   }
 
   function navigateBridgeWindow() {
-    if (bridgeWindowNavigated) return;
-    ensureBridgeWindow();
-
-    if (bridgeIframe) {
+    if (!bridgeWindow || bridgeWindow.closed || bridgeWindowNavigated) return;
+    try {
+      bridgeWindow.location.replace(GAS_BRIDGE_URL);
+      bridgeWindowNavigated = true;
+    } catch (error) {
+      // If replace is blocked for any reason, fall back to direct assignment.
       try {
-        bridgeIframe.src = GAS_BRIDGE_URL;
+        bridgeWindow.location.href = GAS_BRIDGE_URL;
         bridgeWindowNavigated = true;
-      } catch (error) {
+      } catch (innerError) {
         bridgeWindowNavigated = false;
-        throw error;
-      }
-    } else if (bridgeWindow) {
-      if (bridgeWindow.closed) return;
-      try {
-        bridgeWindow.location.replace(GAS_BRIDGE_URL);
-        bridgeWindowNavigated = true;
-      } catch (error) {
-        try {
-          bridgeWindow.location.href = GAS_BRIDGE_URL;
-          bridgeWindowNavigated = true;
-        } catch (innerError) {
-          bridgeWindowNavigated = false;
-          throw innerError;
-        }
+        throw innerError;
       }
     }
   }
 
   function prewarmBridgeWindow() {
-    ensureBridgeWindow();
-    navigateBridgeWindow();
+    if (bridgeWindow && !bridgeWindow.closed) return;
+    if (ensureBridgeWindow()) {
+      bridgeWindowNavigated = false;
+    }
+  }
+
+  function showConnectPrompt() {
+    if (isShowingConnectPrompt) return;
+    isShowingConnectPrompt = true;
+
+    if (window.Swal) {
+      window.Swal.fire({
+        title: 'การเชื่อมต่อระบบ',
+        text: 'กรุณาคลิกปุ่มด้านล่างเพื่อเชื่อมต่อกับฐานข้อมูล Google Apps Script',
+        icon: 'info',
+        confirmButtonText: 'เชื่อมต่อระบบ',
+        confirmButtonColor: '#0d9488',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+      }).then((result) => {
+        isShowingConnectPrompt = false;
+        if (result.isConfirmed) {
+          const target = ensureBridgeWindow();
+          if (target) {
+            navigateBridgeWindow();
+          } else {
+            showConnectPrompt();
+          }
+        }
+      });
+    } else {
+      const overlay = document.createElement('div');
+      overlay.id = 'gas-connect-overlay';
+      overlay.style.position = 'fixed';
+      overlay.style.top = '0';
+      overlay.style.left = '0';
+      overlay.style.width = '100%';
+      overlay.style.height = '100%';
+      overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+      overlay.style.zIndex = '99999';
+      overlay.style.display = 'flex';
+      overlay.style.flexDirection = 'column';
+      overlay.style.justifyContent = 'center';
+      overlay.style.alignItems = 'center';
+      overlay.style.color = '#fff';
+      overlay.style.fontFamily = 'sans-serif';
+      overlay.style.padding = '20px';
+      overlay.style.textAlign = 'center';
+
+      const title = document.createElement('h3');
+      title.textContent = 'ต้องการการเชื่อมต่อกับระบบฐานข้อมูล';
+      title.style.marginBottom = '15px';
+      overlay.appendChild(title);
+
+      const desc = document.createElement('p');
+      desc.textContent = 'กรุณาคลิกปุ่มด้านล่างเพื่อเริ่มการเชื่อมต่อกับ Google Apps Script';
+      desc.style.marginBottom = '20px';
+      overlay.appendChild(desc);
+
+      const btn = document.createElement('button');
+      btn.textContent = 'เชื่อมต่อระบบ';
+      btn.style.padding = '10px 20px';
+      btn.style.fontSize = '16px';
+      btn.style.backgroundColor = '#0d9488';
+      btn.style.color = '#fff';
+      btn.style.border = 'none';
+      btn.style.borderRadius = '5px';
+      btn.style.cursor = 'pointer';
+      btn.onclick = function() {
+        isShowingConnectPrompt = false;
+        document.body.removeChild(overlay);
+        const target = ensureBridgeWindow();
+        if (target) {
+          navigateBridgeWindow();
+        } else {
+          showConnectPrompt();
+        }
+      };
+      overlay.appendChild(btn);
+      document.body.appendChild(overlay);
+    }
   }
 
   function flushQueue() {
-    if (!bridgeReady || !bridgeWindow || (bridgeWindow && bridgeWindow.closed === true)) return;
+    if (!bridgeReady || !bridgeWindow || bridgeWindow.closed) return;
     while (queuedCalls.length) {
       bridgeWindow.postMessage(queuedCalls.shift(), '*');
     }
@@ -103,12 +160,14 @@
   function send(payload) {
     const targetWindow = ensureBridgeWindow();
     if (!targetWindow) {
-      throw new Error('ไม่สามารถเปิดหน้าต่างเชื่อมต่อกับ GAS ได้ กรุณาอนุญาตป๊อปอัปหรือเปิดจากหน้า GAS');
+      queuedCalls.push(payload);
+      showConnectPrompt();
+      return;
     }
 
     navigateBridgeWindow();
 
-    if (!bridgeReady || (bridgeWindow && bridgeWindow.closed === true)) {
+    if (!bridgeReady || targetWindow.closed) {
       queuedCalls.push(payload);
       return;
     }
@@ -146,11 +205,8 @@
     }
   });
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', prewarmBridgeWindow);
-  } else {
-    prewarmBridgeWindow();
-  }
+  window.addEventListener('click', prewarmBridgeWindow, { once: true, capture: true });
+  window.addEventListener('touchstart', prewarmBridgeWindow, { once: true, capture: true });
 
   function invoke(method, args, successHandler, failureHandler) {
     const id = `gas-call-${Date.now()}-${++callId}`;
