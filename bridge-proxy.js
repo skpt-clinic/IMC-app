@@ -12,6 +12,7 @@
   const CALL_TIMEOUT_MS = 20000;
   let callId = 0;
   let bridgeWindow = null;
+  let bridgeWindowNavigated = false;
   let bridgeReady = false;
 
   function createError(payload) {
@@ -26,7 +27,7 @@
     if (bridgeWindow && !bridgeWindow.closed) return bridgeWindow;
 
     bridgeWindow = window.open(
-      GAS_BRIDGE_URL,
+      'about:blank',
       'gasBridge',
       'popup=yes,width=1,height=1,left=0,top=0'
     );
@@ -42,6 +43,30 @@
     return bridgeWindow;
   }
 
+  function navigateBridgeWindow() {
+    if (!bridgeWindow || bridgeWindow.closed || bridgeWindowNavigated) return;
+    try {
+      bridgeWindow.location.replace(GAS_BRIDGE_URL);
+      bridgeWindowNavigated = true;
+    } catch (error) {
+      // If replace is blocked for any reason, fall back to direct assignment.
+      try {
+        bridgeWindow.location.href = GAS_BRIDGE_URL;
+        bridgeWindowNavigated = true;
+      } catch (innerError) {
+        bridgeWindowNavigated = false;
+        throw innerError;
+      }
+    }
+  }
+
+  function prewarmBridgeWindow() {
+    if (bridgeWindow && !bridgeWindow.closed) return;
+    if (ensureBridgeWindow()) {
+      bridgeWindowNavigated = false;
+    }
+  }
+
   function flushQueue() {
     if (!bridgeReady || !bridgeWindow || bridgeWindow.closed) return;
     while (queuedCalls.length) {
@@ -54,6 +79,8 @@
     if (!targetWindow) {
       throw new Error('ไม่สามารถเปิดหน้าต่างเชื่อมต่อกับ GAS ได้ กรุณาอนุญาตป๊อปอัปหรือเปิดจากหน้า GAS');
     }
+
+    navigateBridgeWindow();
 
     if (!bridgeReady || targetWindow.closed) {
       queuedCalls.push(payload);
@@ -92,6 +119,9 @@
       pending.failure(createError(data.error));
     }
   });
+
+  window.addEventListener('pointerdown', prewarmBridgeWindow, { once: true, capture: true });
+  window.addEventListener('focusin', prewarmBridgeWindow, { once: true, capture: true });
 
   function invoke(method, args, successHandler, failureHandler) {
     const id = `gas-call-${Date.now()}-${++callId}`;
