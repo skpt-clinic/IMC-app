@@ -9,8 +9,9 @@
 
   const pendingCalls = new Map();
   const queuedCalls = [];
+  const CALL_TIMEOUT_MS = 20000;
   let callId = 0;
-  let bridgeFrame = null;
+  let bridgeWindow = null;
   let bridgeReady = false;
 
   function createError(payload) {
@@ -21,45 +22,49 @@
     return error;
   }
 
-  function ensureBridgeFrame() {
-    if (bridgeFrame) return bridgeFrame;
+  function ensureBridgeWindow() {
+    if (bridgeWindow && !bridgeWindow.closed) return bridgeWindow;
 
-    bridgeFrame = document.createElement('iframe');
-    bridgeFrame.src = GAS_BRIDGE_URL;
-    bridgeFrame.title = 'GAS Bridge';
-    bridgeFrame.setAttribute('aria-hidden', 'true');
-    bridgeFrame.tabIndex = -1;
-    bridgeFrame.style.cssText =
-      'position:absolute;width:0;height:0;border:0;left:-9999px;top:-9999px;opacity:0;pointer-events:none;';
+    bridgeWindow = window.open(
+      GAS_BRIDGE_URL,
+      'gasBridge',
+      'popup=yes,width=1,height=1,left=0,top=0'
+    );
 
-    const mount = () => {
-      if (!bridgeFrame.isConnected) document.body.appendChild(bridgeFrame);
-    };
+    if (!bridgeWindow) return null;
 
-    if (document.body) mount();
-    else document.addEventListener('DOMContentLoaded', mount, { once: true });
+    try {
+      bridgeWindow.focus();
+    } catch (error) {
+      // Ignore focus errors on browsers that block it.
+    }
 
-    return bridgeFrame;
+    return bridgeWindow;
   }
 
   function flushQueue() {
-    if (!bridgeReady || !bridgeFrame || !bridgeFrame.contentWindow) return;
+    if (!bridgeReady || !bridgeWindow || bridgeWindow.closed) return;
     while (queuedCalls.length) {
-      bridgeFrame.contentWindow.postMessage(queuedCalls.shift(), '*');
+      bridgeWindow.postMessage(queuedCalls.shift(), '*');
     }
   }
 
   function send(payload) {
-    ensureBridgeFrame();
-    if (!bridgeReady || !bridgeFrame || !bridgeFrame.contentWindow) {
+    const targetWindow = ensureBridgeWindow();
+    if (!targetWindow) {
+      throw new Error('ไม่สามารถเปิดหน้าต่างเชื่อมต่อกับ GAS ได้ กรุณาอนุญาตป๊อปอัปหรือเปิดจากหน้า GAS');
+    }
+
+    if (!bridgeReady || targetWindow.closed) {
       queuedCalls.push(payload);
       return;
     }
-    bridgeFrame.contentWindow.postMessage(payload, '*');
+
+    targetWindow.postMessage(payload, '*');
   }
 
   window.addEventListener('message', (event) => {
-    if (!bridgeFrame || event.source !== bridgeFrame.contentWindow) return;
+    if (!bridgeWindow || event.source !== bridgeWindow) return;
 
     const data = event.data || {};
     if (data.type === 'bridge-ready') {
@@ -74,6 +79,10 @@
     if (!pending) return;
     pendingCalls.delete(data.id);
 
+    if (pending.timeoutId) {
+      window.clearTimeout(pending.timeoutId);
+    }
+
     if (data.ok) {
       if (typeof pending.success === 'function') pending.success(data.result);
       return;
@@ -86,13 +95,32 @@
 
   function invoke(method, args, successHandler, failureHandler) {
     const id = `gas-call-${Date.now()}-${++callId}`;
-    pendingCalls.set(id, { success: successHandler, failure: failureHandler });
-    send({
-      type: 'bridge-call',
-      id,
-      method,
-      args: Array.from(args || []),
-    });
+    const timeoutId = window.setTimeout(() => {
+      if (!pendingCalls.has(id)) return;
+      pendingCalls.delete(id);
+      if (typeof failureHandler === 'function') {
+        failureHandler(new Error('เชื่อมต่อกับ GAS ไม่สำเร็จหรือถูกบล็อกโดยเบราว์เซอร์'));
+      }
+    }, CALL_TIMEOUT_MS);
+
+    pendingCalls.set(id, { success: successHandler, failure: failureHandler, timeoutId });
+
+    try {
+      send({
+        type: 'bridge-call',
+        id,
+        method,
+        args: Array.from(args || []),
+      });
+    } catch (error) {
+      window.clearTimeout(timeoutId);
+      pendingCalls.delete(id);
+      if (typeof failureHandler === 'function') {
+        failureHandler(error);
+      } else {
+        throw error;
+      }
+    }
   }
 
   function createRunner(successHandler, failureHandler) {
@@ -120,6 +148,4 @@
   window.google = window.google || {};
   window.google.script = window.google.script || {};
   window.google.script.run = createRunner();
-
-  ensureBridgeFrame();
 })();
