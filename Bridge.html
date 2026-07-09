@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bridge</title>
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+    }
+  </style>
+</head>
+<body>
+  <script>
+    function serializeError(error) {
+      if (!error) return { message: 'Unknown GAS bridge error' };
+      return {
+        name: error.name || 'Error',
+        message: error.message || String(error),
+        stack: error.stack || '',
+      };
+    }
+
+    function send(payload) {
+      parent.postMessage(payload, '*');
+    }
+
+    window.addEventListener('message', (event) => {
+      const data = event.data || {};
+      if (data.type !== 'bridge-call') return;
+
+      try {
+        const runner = google.script.run
+          .withSuccessHandler((result) => {
+            send({ type: 'bridge-response', id: data.id, ok: true, result });
+          })
+          .withFailureHandler((error) => {
+            send({ type: 'bridge-response', id: data.id, ok: false, error: serializeError(error) });
+          });
+
+        const fn = runner[data.method];
+        if (typeof fn !== 'function') {
+          throw new Error(`Unknown GAS method: ${data.method}`);
+        }
+        fn.apply(runner, Array.isArray(data.args) ? data.args : []);
+      } catch (error) {
+        send({ type: 'bridge-response', id: data.id, ok: false, error: serializeError(error) });
+      }
+    });
+
+    send({ type: 'bridge-ready' });
+  </script>
+</body>
+</html>

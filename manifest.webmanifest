@@ -1,0 +1,16 @@
+{
+  "name": "สุขกาย IMC Plus",
+  "short_name": "IMC Plus",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f766e",
+  "icons": [
+    {
+      "src": "icon.jpg",
+      "sizes": "1127x927",
+      "type": "image/jpeg"
+    }
+  ]
+}

@@ -1,0 +1,1521 @@
+﻿<!DOCTYPE html>
+
+<html lang="th">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f766e">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icon.jpg" type="image/jpeg">
+    <link rel="apple-touch-icon" href="icon.jpg">
+
+    <title>สุขกาย IMC Plus</title>
+
+    
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+
+    
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" />
+
+    
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+
+
+    <script>
+
+    // รับค่าตัวแปรจาก Server (Code.gs)
+
+    var SERVER_RESET_TOKEN = new URLSearchParams(window.location.search).get("resetToken") || "";
+
+    var SERVER_VIEW_MODE = new URLSearchParams(window.location.search).get("view") || "login";
+    var SERVER_DEFAULT_CLINIC_LOGO_URL = "icon.jpg";
+    var GAS_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbxXrm3QgmEbFiNrLousaEF5kLk40fec_oYcRNPHXacdYZFI35UeVLVS5SZ1BUmUBizY/exec";
+    var GAS_BRIDGE_URL = GAS_WEBAPP_URL + "?view=bridge";
+
+    </script>
+
+
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    
+
+    <link rel="stylesheet" href="styles.css">
+
+    <style>
+
+        @keyframes fadeInUp {
+
+            from { opacity: 0; transform: translate3d(0, 20px, 0); }
+
+            to { opacity: 1; transform: translate3d(0, 0, 0); }
+
+        }
+
+        .animate-fade-in-up {
+
+            animation: fadeInUp 0.5s ease-out forwards;
+
+        }
+
+        .glass-panel {
+
+            background: rgba(255, 255, 255, 0.1);
+
+            backdrop-filter: blur(10px);
+
+            border: 1px solid rgba(255, 255, 255, 0.2);
+
+        }
+
+    </style>
+
+</head>
+
+<body class="bg-slate-50 font-['Prompt'] text-slate-800 antialiased">
+
+  <button id="install-app-btn" type="button" class="fixed bottom-4 right-4 z-[70] hidden h-12 w-12 rounded-full bg-teal-600 text-white shadow-lg shadow-teal-600/30 hover:bg-teal-700 focus:outline-none focus:ring-4 focus:ring-teal-200 transition" aria-label="ติดตั้งแอพ" title="ติดตั้งแอพ"><i class="bi bi-download text-lg"></i></button>
+
+
+
+  <div id="auth-container" class="fixed inset-0 z-50 flex bg-white font-['Prompt']">
+
+    
+
+    <div class="hidden lg:flex lg:w-1/2 bg-teal-600 relative justify-center items-center overflow-hidden">
+
+        <div class="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-teal-400 to-teal-800"></div>
+
+        <div class="absolute -bottom-24 -left-24 w-96 h-96 bg-teal-500 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
+
+        <div class="absolute -top-24 -right-24 w-96 h-96 bg-teal-300 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
+
+        
+
+        <div class="relative z-10 text-center px-10 max-w-lg">
+
+            <div class="mb-8 inline-flex items-center justify-center p-6 bg-white rounded-3xl shadow-2xl w-40 h-40 mx-auto transform hover:scale-105 transition duration-500">
+
+                <img id="auth-logo-img" src="icon.jpg" alt="Logo" class="w-full h-full object-contain" referrerpolicy="no-referrer">
+
+            </div>
+
+            <h1 class="text-4xl md:text-5xl font-bold text-white mb-4 tracking-tight text-shadow-sm leading-tight">สุขกาย IMC Plus</h1>
+
+            <div class="w-24 h-1.5 bg-teal-300 mx-auto mb-6 rounded-full"></div>
+
+            <p class="text-xl text-teal-50 font-light leading-relaxed opacity-90">
+
+                ระบบบริหารจัดการการเยี่ยมบ้าน<br>สุขกายคลินิกกายภาพบำบัด
+
+            </p>
+
+            <div class="mt-10 glass-panel p-4 rounded-xl text-teal-50 text-sm">
+
+                <i class="bi bi-shield-check mr-2"></i> 557 หมู่ 1 ตำบลสว่างแดนดิน <br>อำเภอสว่างแดนดิน จังหวัดสกลนคร <br>โทร : 095-656-0672
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <div class="w-full lg:w-1/2 flex items-center justify-center p-6 bg-slate-50 overflow-y-auto">
+
+        <div class="w-full max-w-lg">
+
+            
+
+            <div id="login-view" class="bg-white p-8 md:p-12 rounded-3xl shadow-xl border border-slate-100 animate-fade-in-up">
+
+                <div class="text-center mb-10 lg:hidden">
+
+                    <div class="inline-block p-3 bg-teal-50 rounded-full mb-3">
+
+                         <img src="icon.jpg" class="w-12 h-12 object-contain" referrerpolicy="no-referrer">
+
+                    </div>
+
+                    <h1 class="text-3xl font-bold text-teal-600">สุขกาย IMC Plus</h1>
+
+                </div>
+
+                
+
+                <div class="mb-8">
+
+                    <h2 class="text-3xl font-bold text-gray-800">ยินดีต้อนรับ</h2>
+
+                    <p class="text-gray-500 mt-2">กรุณาเข้าสู่ระบบเพื่อเริ่มใช้งาน</p>
+
+                </div>
+
+
+
+                <form id="login-form" class="space-y-6">
+
+                    <div>
+
+                        <label for="login-username" class="block text-sm font-semibold text-gray-700 mb-2 ml-1">ชื่อผู้ใช้งาน</label>
+
+                        <div class="relative">
+
+                            <span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+
+                                <i class="bi bi-person text-lg"></i>
+
+                            </span>
+
+                            <input type="text" id="login-username" class="form-input w-full pl-12 pr-4 py-3.5 rounded-xl border-gray-200 focus:border-teal-500 focus:ring focus:ring-teal-200 transition bg-slate-50 focus:bg-white text-base" required placeholder="ระบุ Username">
+
+                        </div>
+
+                    </div>
+
+                    <div>
+
+                        <div class="flex justify-between items-center mb-2 ml-1">
+
+                            <label for="login-password" class="block text-sm font-semibold text-gray-700">รหัสผ่าน</label>
+
+                            <a href="#" onclick="showForgotPasswordModal(); return false;" class="text-sm text-teal-600 hover:text-teal-800 font-medium">ลืมรหัสผ่าน?</a>
+
+                        </div>
+
+                        <div class="relative">
+
+                             <span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+
+                                <i class="bi bi-lock text-lg"></i>
+
+                            </span>
+
+                            <input type="password" id="login-password" class="form-input w-full pl-12 pr-4 py-3.5 rounded-xl border-gray-200 focus:border-teal-500 focus:ring focus:ring-teal-200 transition bg-slate-50 focus:bg-white text-base" required placeholder="ระบุ Password">
+
+                        </div>
+
+                    </div>
+
+                    
+
+                    <button type="submit" class="w-full bg-teal-600 text-white py-3.5 rounded-xl hover:bg-teal-700 font-bold text-lg shadow-lg shadow-teal-500/30 transition transform active:scale-[0.98] flex items-center justify-center mt-2">
+
+                        <span>เข้าสู่ระบบ</span>
+
+                        <i class="bi bi-arrow-right ml-2"></i>
+
+                    </button>
+
+                </form>
+
+
+
+                <div class="mt-10 pt-6 border-t border-gray-100 text-center">
+
+                    <p class="text-gray-600">
+
+                        ยังไม่มีบัญชีผู้ใช้งาน? 
+
+                        <a href="#" id="show-register-link" class="text-teal-600 hover:text-teal-800 font-bold ml-1 transition underline decoration-2 decoration-teal-200 hover:decoration-teal-600 underline-offset-4">สมัครสมาชิก</a>
+
+                    </p>
+
+                </div>
+
+            </div>
+
+
+
+            <div id="register-view" class="bg-white p-8 md:p-12 rounded-3xl shadow-xl border border-slate-100 animate-fade-in-up" style="display: none;">
+
+                <div class="mb-8 text-center">
+
+                    <h2 class="text-3xl font-bold text-gray-800">สมัครสมาชิกใหม่</h2>
+
+                    <p class="text-gray-500 mt-2">กรอกข้อมูลเพื่อสร้างบัญชีผู้ใช้</p>
+
+                </div>
+
+                <form id="register-form" class="space-y-5">
+
+                    <div class="space-y-4">
+
+                        <div>
+
+                            <label for="register-fullname" class="block text-sm font-semibold text-gray-700 mb-1 ml-1">ชื่อ-นามสกุล</label>
+
+                            <input type="text" id="register-fullname" class="form-input w-full px-4 py-3 rounded-xl border-gray-200 focus:border-teal-500 focus:ring-teal-200 bg-slate-50 focus:bg-white transition" required placeholder="ชื่อ นามสกุล">
+
+                        </div>
+
+                        <div>
+
+                            <label for="register-email" class="block text-sm font-semibold text-gray-700 mb-1 ml-1">อีเมล</label>
+
+                            <input type="email" id="register-email" class="form-input w-full px-4 py-3 rounded-xl border-gray-200 focus:border-teal-500 focus:ring-teal-200 bg-slate-50 focus:bg-white transition" required placeholder="email@example.com">
+
+                        </div>
+
+                        <div>
+
+                            <label for="register-username" class="block text-sm font-semibold text-gray-700 mb-1 ml-1">ชื่อผู้ใช้งาน</label>
+
+                            <input type="text" id="register-username" class="form-input w-full px-4 py-3 rounded-xl border-gray-200 focus:border-teal-500 focus:ring-teal-200 bg-slate-50 focus:bg-white transition" required placeholder="Username">
+
+                        </div>
+
+                        <div>
+
+                            <label for="register-password" class="block text-sm font-semibold text-gray-700 mb-1 ml-1">รหัสผ่าน</label>
+
+                            <input type="password" id="register-password" class="form-input w-full px-4 py-3 rounded-xl border-gray-200 focus:border-teal-500 focus:ring-teal-200 bg-slate-50 focus:bg-white transition" required placeholder="********">
+
+                        </div>
+
+                    </div>
+
+                    <button type="submit" class="w-full bg-teal-600 text-white py-3.5 rounded-xl hover:bg-teal-700 font-bold text-lg shadow-md transition mt-4">ยืนยันการสมัคร</button>
+
+                     <p class="text-sm text-center text-gray-500 mt-6">
+
+                        มีบัญชีอยู่แล้ว? <a href="#" id="show-login-link" class="text-teal-600 hover:text-teal-800 font-bold transition">กลับไปหน้าเข้าสู่ระบบ</a>
+
+                    </p>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+  </div>
+
+
+
+  <div id="main-app" class="flex h-screen overflow-hidden bg-slate-50" style="display:none;">
+
+    
+
+    <aside id="desktop-sidebar" class="hidden md:flex md:flex-col w-64 bg-white border-r border-gray-200 shadow-sm z-20 transition-all duration-300 ease-in-out">
+
+        
+
+        <div class="h-16 flex items-center justify-between px-4 border-b border-gray-100">
+
+            <div class="flex items-center overflow-hidden whitespace-nowrap">
+
+                <img id="clinic-logo-sidebar" src="icon.jpg" alt="Logo" class="h-8 w-auto object-contain transition-all duration-300" referrerpolicy="no-referrer">
+
+                <div id="sidebar-logo-text" class="flex flex-col justify-center ml-3 transition-opacity duration-300">
+
+                    <span class="font-bold text-teal-600 text-lg leading-tight">IMC Plus</span>
+
+                    <span class="text-[10px] text-gray-500 font-medium">สุขกายคลินิกกายภาพบำบัด</span>
+
+                </div>
+
+            </div>
+
+            <button onclick="toggleDesktopSidebar()" class="p-1.5 rounded-lg text-gray-400 hover:text-teal-600 hover:bg-gray-100 focus:outline-none transition-colors">
+
+                <i id="sidebar-toggle-icon" class="bi bi-list-nested text-xl"></i>
+
+            </button>
+
+        </div>
+
+
+
+        <div class="flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar overflow-x-hidden">
+
+            <p class="sidebar-section-label px-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 transition-opacity duration-300">Main Menu</p>
+
+            
+
+            <a href="#" onclick="showDashboardView()" class="nav-link group active flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-gray-600 hover:text-teal-600 hover:bg-teal-50 transition-all duration-200" data-view="dashboard">
+
+                <i class="bi bi-grid-1x2-fill nav-icon text-lg min-w-[24px] text-center"></i>
+
+                <span class="sidebar-text ml-3 whitespace-nowrap transition-opacity duration-300">ภาพรวม (Dashboard)</span>
+
+            </a>
+
+
+
+            <div class="mt-4">
+
+                <p class="sidebar-section-label px-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 transition-opacity duration-300">Patient Care</p>
+
+                
+
+                <a href="#" onclick="showListView()" class="nav-link group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-gray-600 hover:text-teal-600 hover:bg-teal-50 transition-all duration-200" data-view="list">
+
+                    <i class="bi bi-people-fill nav-icon text-lg min-w-[24px] text-center"></i>
+
+                    <span class="sidebar-text ml-3 whitespace-nowrap transition-opacity duration-300">ทะเบียนผู้ป่วย</span>
+
+                </a>
+
+                <a href="#" onclick="showServiceView()" class="nav-link group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-gray-600 hover:text-teal-600 hover:bg-teal-50 transition-all duration-200" data-view="service">
+
+                    <i class="bi bi-clipboard2-pulse-fill nav-icon text-lg min-w-[24px] text-center"></i>
+
+                    <span class="sidebar-text ml-3 whitespace-nowrap transition-opacity duration-300">เข้ารับบริการ</span>
+
+                </a>
+
+                <a href="#" onclick="showScheduleView()" class="nav-link group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-gray-600 hover:text-teal-600 hover:bg-teal-50 transition-all duration-200" data-view="schedule">
+
+                    <i class="bi bi-calendar-check-fill nav-icon text-lg min-w-[24px] text-center"></i>
+
+                    <span class="sidebar-text ml-3 whitespace-nowrap transition-opacity duration-300">ตารางนัดหมาย</span>
+
+                </a>
+
+            </div>
+
+
+
+            <div class="mt-4">
+
+                <p class="sidebar-section-label px-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2 transition-opacity duration-300">Reports</p>
+
+                <a href="#" onclick="showSummaryView()" class="nav-link group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-gray-600 hover:text-teal-600 hover:bg-teal-50 transition-all duration-200" data-view="summary">
+
+                    <i class="bi bi-file-earmark-bar-graph-fill nav-icon text-lg min-w-[24px] text-center"></i>
+
+                    <span class="sidebar-text ml-3 whitespace-nowrap transition-opacity duration-300">สรุปผลรายวัน</span>
+
+                </a>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="p-3 border-t border-gray-100 bg-gray-50">
+
+            <div class="flex items-center overflow-hidden whitespace-nowrap">
+
+                <div class="h-9 w-9 min-w-[36px] rounded-full bg-teal-100 flex items-center justify-center text-teal-600 font-bold text-sm">
+
+                    <i class="bi bi-person-fill"></i>
+
+                </div>
+
+                <div id="sidebar-user-text" class="ml-3 transition-opacity duration-300">
+
+                    <p id="username-display-sidebar" class="text-sm font-medium text-gray-700 truncate w-32">Username</p>
+
+                    <a href="#" onclick="logout()" class="text-xs text-red-500 hover:text-red-700">ออกจากระบบ</a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </aside>
+
+
+
+    <div class="flex-1 flex flex-col overflow-hidden relative">
+
+        <header class="bg-white h-16 shadow-sm flex items-center justify-between px-4 sm:px-6 z-10">
+
+            <div class="flex items-center">
+
+                <button id="menu-toggle" class="md:hidden text-gray-500 focus:outline-none mr-3">
+
+                    <i class="bi bi-list text-2xl"></i>
+
+                </button>
+
+                <h2 id="main-header-title" class="text-xl font-bold text-gray-800 truncate">ภาพรวม (Dashboard)</h2>
+
+            </div>
+
+            
+
+            <div class="flex items-center space-x-4">
+
+                 <div class="hidden sm:flex flex-col items-end">
+
+                     <p id="real-time-clock" class="text-sm font-medium text-gray-600"></p>
+
+                </div>
+
+                
+
+                <button class="relative p-2 text-gray-400 hover:text-teal-600 transition">
+
+                    <i class="bi bi-bell-fill text-xl"></i>
+
+                    <span class="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500 border border-white"></span>
+
+                </button>
+
+            </div>
+
+        </header>
+
+
+
+        <main class="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50 p-4 md:p-6" id="main-content-scroll">
+
+            
+
+            <div id="dashboard-view" class="fade-in">
+
+                
+
+                <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
+
+                    
+
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center transition-all duration-300 hover:-translate-y-1 hover:shadow-lg cursor-pointer group">
+
+                        <div class="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xl mr-3 flex-shrink-0 transition-transform duration-300 group-hover:scale-110">
+
+                            <i class="bi bi-people-fill"></i>
+
+                        </div>
+
+                        <div class="min-w-0">
+
+                            <p class="text-xs text-gray-500 font-bold uppercase tracking-wide truncate">ผู้ป่วยทั้งหมด</p>
+
+                            <h3 id="total-patients-card" class="text-2xl font-bold text-gray-800">0</h3>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center transition-all duration-300 hover:-translate-y-1 hover:shadow-lg cursor-pointer group">
+
+                        <div class="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-xl mr-3 flex-shrink-0 transition-transform duration-300 group-hover:scale-110">
+
+                            <i class="bi bi-check-circle-fill"></i>
+
+                        </div>
+
+                        <div class="min-w-0">
+
+                            <p class="text-xs text-gray-500 font-bold uppercase tracking-wide truncate">เยี่ยมสำเร็จ</p>
+
+                            <h3 id="completed-visits-card" class="text-2xl font-bold text-gray-800">0</h3>
+
+                        </div>
+
+                    </div>
+
+
+
+                     <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center transition-all duration-300 hover:-translate-y-1 hover:shadow-lg cursor-pointer group">
+
+                        <div class="h-12 w-12 rounded-full bg-amber-100 flex items-center justify-center text-amber-600 text-xl mr-3 flex-shrink-0 transition-transform duration-300 group-hover:scale-110">
+
+                            <i class="bi bi-hourglass-split"></i>
+
+                        </div>
+
+                        <div class="min-w-0">
+
+                            <p class="text-xs text-gray-500 font-bold uppercase tracking-wide truncate">กำลังดำเนินการ</p>
+
+                            <h3 id="pending-visits-card" class="text-2xl font-bold text-gray-800">0</h3>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center transition-all duration-300 hover:-translate-y-1 hover:shadow-lg cursor-pointer group">
+
+                        <div class="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 text-xl mr-3 flex-shrink-0 transition-transform duration-300 group-hover:scale-110">
+
+                            <i class="bi bi-clock-history"></i>
+
+                        </div>
+
+                        <div class="min-w-0">
+
+                            <p class="text-xs text-gray-500 font-bold uppercase tracking-wide truncate">รอเยี่ยม</p>
+
+                            <h3 id="waiting-visits-card" class="text-2xl font-bold text-gray-800">0</h3>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center transition-all duration-300 hover:-translate-y-1 hover:shadow-lg cursor-pointer group">
+
+                        <div class="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center text-red-600 text-xl mr-3 flex-shrink-0 transition-transform duration-300 group-hover:scale-110">
+
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+
+                        </div>
+
+                        <div class="min-w-0">
+
+                            <p class="text-xs text-gray-500 font-bold uppercase tracking-wide truncate">ยังไม่กำหนดวัน</p>
+
+                            <h3 id="unscheduled-visits-card" class="text-2xl font-bold text-gray-800">0</h3>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="bg-white rounded-xl p-4 shadow-sm border border-slate-100 flex items-center transition-all duration-300 hover:-translate-y-1 hover:shadow-lg cursor-pointer group">
+
+                        <div class="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-xl mr-3 flex-shrink-0 transition-transform duration-300 group-hover:scale-110">
+
+                            <i class="bi bi-person-x-fill"></i>
+
+                        </div>
+
+                        <div class="min-w-0">
+
+                            <p class="text-xs text-gray-500 font-bold uppercase tracking-wide truncate">ปิดบริการแล้ว</p>
+
+                            <h3 id="discharged-visits-card" class="text-2xl font-bold text-gray-800">0</h3>
+
+                        </div>
+
+                    </div>
+
+
+
+                </div>
+
+
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+
+                        <h3 class="font-bold text-gray-700 mb-4">ผู้ป่วยแยกตามโซน</h3>
+
+                        <div class="relative h-64"> <canvas id="zoneChart"></canvas> </div>
+
+                    </div>
+
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+
+                        <h3 class="font-bold text-gray-700 mb-4">กลุ่มโรค (Diagnosis)</h3>
+
+                        <div class="relative h-64"> <canvas id="diagnosisChart"></canvas> </div>
+
+                    </div>
+
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+
+                        <h3 class="font-bold text-gray-700 mb-4">ระดับคะแนน BI</h3>
+
+                        <div class="relative h-64"> <canvas id="biChart"></canvas> </div>
+
+                    </div>
+
+                </div>
+
+                
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+
+                    <div class="flex justify-between items-center mb-4">
+
+                        <h3 class="font-bold text-gray-700">สถานะการเยี่ยมบ้าน (ภาพรวม)</h3>
+
+                        <span id="progress-percentage" class="text-2xl font-bold text-teal-600">0% สำเร็จ</span>
+
+                    </div>
+
+                    <div id="progress-bars-container"></div>
+
+                </div>
+
+            </div>
+
+
+
+            <div id="patient-list-view" class="fade-in" style="display: none;">
+
+                <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+
+                    <div class="border-b border-gray-200 px-4 pt-4 bg-gray-50/50">
+
+                        <ul class="nav nav-tabs -mb-px" id="patientListTabs" role="tablist">
+
+                            <li class="nav-item" role="presentation">
+
+                                <button class="nav-link active font-bold text-teal-700" id="active-tab" data-bs-toggle="tab" data-bs-target="#active-patients" type="button" role="tab" onclick="switchPatientTab('Active')">
+
+                                    <i class="bi bi-person-check-fill mr-2"></i>ทะเบียนให้บริการ
+
+                                </button>
+
+                            </li>
+
+                            <li class="nav-item" role="presentation">
+
+                                <button class="nav-link text-gray-500 hover:text-gray-700" id="discharged-tab" data-bs-toggle="tab" data-bs-target="#discharged-patients" type="button" role="tab" onclick="switchPatientTab('Discharged')">
+
+                                    <i class="bi bi-person-x-fill mr-2"></i>ผู้ป่วยที่ปิดบริการ
+
+                                </button>
+
+                            </li>
+
+                        </ul>
+
+                    </div>
+
+
+
+                    <div class="p-4 border-b border-gray-100 flex flex-col md:flex-row gap-4 justify-between items-center">
+
+                        <div class="relative w-full md:w-96">
+
+                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+
+                                <i class="bi bi-search text-gray-400"></i>
+
+                            </div>
+
+                            <input type="text" id="searchInput" onkeyup="filterPatients()" placeholder="ค้นหาชื่อ, CN, เลขบัตร..." class="pl-10 w-full rounded-lg border-gray-300 focus:ring-teal-500 focus:border-teal-500 text-sm">
+
+                        </div>
+
+                        <div class="flex gap-2 w-full md:w-auto">
+
+                            <select id="zoneFilter" onchange="filterPatients()" class="rounded-lg border-gray-300 text-sm focus:ring-teal-500 focus:border-teal-500 min-w-[140px]"></select>
+
+                            <button id="btn-new-patient" onclick="openNewPatientForm()" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center transition shadow-sm whitespace-nowrap">
+
+                                <i class="bi bi-person-plus-fill mr-2"></i> ผู้ป่วยใหม่
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="overflow-x-auto">
+
+                        <table class="w-full text-sm text-left">
+
+                            <thead class="bg-gray-50 text-gray-500 uppercase font-medium">
+
+                                <tr id="patient-table-header"></tr>
+
+                            </thead>
+
+                            <tbody id="patient-table-body" class="divide-y divide-gray-100"></tbody>
+
+                        </table>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+
+            <div id="patient-detail-view" class="fade-in space-y-4" style="display: none;">
+
+                <div class="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+
+                    <button onclick="goBackToList()" class="flex items-center text-gray-500 hover:text-teal-600 transition font-medium">
+
+                        <i class="bi bi-arrow-left mr-2"></i> กลับ
+
+                    </button>
+
+                    <div class="flex gap-2">
+
+                        <button id="detail-edit-button" class="btn btn-warning btn-sm text-white"><i class="bi bi-pencil-square mr-1"></i>แก้ไข</button>
+
+                        <button onclick="printRecord('IMCCover', currentPatient.PatientID)" class="btn btn-info btn-sm text-white"><i class="bi bi-printer mr-1"></i>ปก</button>
+
+                        <button id="detail-delete-button" class="btn btn-danger btn-sm"><i class="bi bi-trash mr-1"></i>ลบ</button>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                    <div class="lg:col-span-4 xl:col-span-3">
+
+                         <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex flex-col items-center text-center">
+
+                            <div class="relative mb-4">
+
+                                <img id="detail-photo" src="" class="w-32 h-32 rounded-full object-cover border-4 border-teal-50 shadow-sm">
+
+                                <span class="absolute bottom-0 right-0 h-6 w-6 bg-green-400 border-2 border-white rounded-full"></span>
+
+                            </div>
+
+                            <div id="patient-info-grid" class="w-full text-left space-y-3 mt-2"></div>
+
+                         </div>
+
+                    </div>
+
+
+
+                    <div class="lg:col-span-8 xl:col-span-9">
+
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden min-h-[500px]">
+
+                            <div class="border-b border-gray-200">
+
+                                <nav class="flex -mb-px">
+
+                                    <button class="detail-tab-link active w-1/3 py-4 text-center font-medium text-sm border-b-2" onclick="switchDetailTab(event, 'info-tab')">ข้อมูลการรักษา</button>
+
+                                    <button class="detail-tab-link w-1/3 py-4 text-center font-medium text-sm border-b-2" onclick="switchDetailTab(event, 'schedule-tab')">ตารางนัดหมาย</button>
+
+                                    <button class="detail-tab-link w-1/3 py-4 text-center font-medium text-sm border-b-2" onclick="switchDetailTab(event, 'emr-tab')">เอกสาร EMR</button>
+
+                                </nav>
+
+                            </div>
+
+                            <div id="detail-tab-content" class="p-6"></div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+
+            <div id="service-view" class="fade-in space-y-6" style="display: none;">
+
+                <div id="service-search-panel" class="max-w-2xl mx-auto mt-10">
+
+                    <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center">
+
+                        <div class="h-16 w-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4 text-teal-600 text-2xl">
+
+                            <i class="bi bi-search"></i>
+
+                        </div>
+
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">ค้นหาผู้ป่วยเพื่อเข้ารับบริการ</h3>
+
+                        <p class="text-gray-500 mb-6">กรอกชื่อ, รหัส CN หรือเลขบัตรประชาชน</p>
+
+                        
+
+                        <div class="relative">
+
+                            <input type="text" id="serviceSearchInput" onkeyup="searchServicePatient(event)" class="w-full pl-5 pr-12 py-3 rounded-xl border-gray-300 focus:ring-teal-500 focus:border-teal-500 shadow-sm text-lg" placeholder="พิมพ์คำค้นหา...">
+
+                            <button onclick="searchServicePatient(null, true)" class="absolute right-2 top-2 bg-teal-600 text-white p-2 rounded-lg hover:bg-teal-700 transition">
+
+                                <i class="bi bi-arrow-right"></i>
+
+                            </button>
+
+                        </div>
+
+                        <div id="service-search-results" class="mt-4 text-left max-h-60 overflow-y-auto hidden"></div>
+
+                    </div>
+
+                </div>
+
+
+
+                <div id="patient-service-dashboard" style="display: none;">
+
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 mb-6">
+
+                        <div class="flex flex-col md:flex-row items-start md:items-center gap-6">
+
+                            <div class="flex-shrink-0">
+
+                                <img id="service-patient-photo" src="" class="w-20 h-20 rounded-full object-cover border-4 border-teal-50 shadow-sm">
+
+                            </div>
+
+                            <div class="flex-grow w-full">
+
+                                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-2">
+
+                                    <div>
+
+                                        <h3 id="service-patient-name" class="text-2xl font-bold text-gray-800 mb-1"></h3>
+
+                                        <div class="text-sm text-gray-500 flex items-center gap-3">
+
+                                            <span id="service-patient-info"></span>
+
+                                            <span class="text-gray-300">|</span>
+
+                                            <span id="service-patient-zone-display" class="font-medium text-teal-600"></span>
+
+                                        </div>
+
+                                    </div>
+
+                                    <div class="mt-2 md:mt-0 text-right bg-gray-50 px-4 py-2 rounded-lg border border-gray-100">
+
+                                        <span class="text-xs font-semibold text-gray-400 uppercase block mb-1">สถานะการเยี่ยม</span>
+
+                                        <div id="service-visit-status" class="text-xl font-bold text-teal-600"></div>
+
+                                    </div>
+
+                                </div>
+
+                                <div class="flex flex-wrap gap-2 mb-3">
+
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+
+                                        <i class="bi bi-person-vcard-fill mr-1.5"></i> CID: <span id="service-patient-cid">-</span>
+
+                                    </span>
+
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+
+                                        <i class="bi bi-telephone-fill mr-1.5"></i> โทร: <span id="service-patient-phone">-</span>
+
+                                    </span>
+
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-orange-50 text-orange-700 border border-orange-100">
+
+                                        <i class="bi bi-calendar-check-fill mr-1.5"></i> ครบกำหนด: <span id="service-patient-dayend">-</span>
+
+                                    </span>
+
+                                </div>
+
+                                <div class="text-sm text-gray-500 flex items-start">
+
+                                    <i class="bi bi-geo-alt-fill text-red-400 mr-2 mt-0.5"></i>
+
+                                    <span id="service-patient-address">-</span>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <div id="service-menu-bar" class="flex flex-wrap gap-3 mb-6"></div>
+
+                    <div id="service-form-area" class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 min-h-[400px]" style="display: none;"></div>
+
+                </div>
+
+            </div>
+
+
+
+            <div id="schedule-view" class="fade-in grid grid-cols-1 lg:grid-cols-3 gap-6" style="display: none;">
+
+                 <div class="lg:col-span-2">
+
+                     <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+
+                         <div class="flex justify-between items-center mb-6">
+
+                             <h3 class="text-lg font-bold text-gray-800"><i class="bi bi-calendar-week mr-2 text-teal-500"></i>ปฏิทินนัดหมาย</h3>
+
+                             <div class="flex items-center gap-2">
+
+                                 <button id="prev-month-btn" class="p-2 hover:bg-gray-100 rounded-lg text-gray-600"><i class="bi bi-chevron-left"></i></button>
+
+                                 <span id="calendar-month-year" class="font-bold text-teal-700 w-32 text-center"></span>
+
+                                 <button id="next-month-btn" class="p-2 hover:bg-gray-100 rounded-lg text-gray-600"><i class="bi bi-chevron-right"></i></button>
+
+                             </div>
+
+                         </div>
+
+                         <div class="grid grid-cols-7 gap-1 mb-2 text-center text-sm font-semibold text-gray-400">
+
+                             <div>อา.</div><div>จ.</div><div>อ.</div><div>พ.</div><div>พฤ.</div><div>ศ.</div><div>ส.</div>
+
+                         </div>
+
+                         <div id="calendar-grid" class="grid grid-cols-7 gap-2"></div>
+
+                     </div>
+
+                 </div>
+
+
+
+                 <div class="lg:col-span-1">
+
+                     <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-full">
+
+                         <div class="mb-4">
+
+                             <label class="text-sm font-medium text-gray-500 block mb-1">เลือกวันที่</label>
+
+                             <input type="date" id="schedule-date-filter" class="w-full rounded-lg border-gray-300 focus:ring-teal-500 focus:border-teal-500">
+
+                         </div>
+
+                         <h4 class="text-md font-bold text-gray-800 mb-3 border-b pb-2">รายการนัดหมาย</h4>
+
+                         <div id="daily-schedule-list" class="space-y-3 overflow-y-auto max-h-[500px] pr-2 custom-scrollbar"></div>
+
+                     </div>
+
+                 </div>
+
+            </div>
+
+
+
+            <div id="summary-view" class="space-y-6" style="display: none;">
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-wrap items-end gap-4 justify-between">
+
+                    <div>
+
+                        <h3 class="text-lg font-bold text-teal-800 mb-1">ติดตามสถานะและผลการรักษาตามช่วงวันที่กำหนด</h3>
+
+                        
+
+                    </div>
+
+                    <div class="flex gap-2 items-end">
+
+                        <div>
+
+                            <label class="text-xs font-medium text-gray-500 block mb-1">ตั้งแต่วันที่</label>
+
+                            <input type="date" id="summary-start-date" class="rounded-lg border-gray-300 focus:ring-teal-500 focus:border-teal-500 text-sm">
+
+                        </div>
+
+                        <div>
+
+                            <label class="text-xs font-medium text-gray-500 block mb-1">ถึงวันที่</label>
+
+                            <input type="date" id="summary-end-date" class="rounded-lg border-gray-300 focus:ring-teal-500 focus:border-teal-500 text-sm">
+
+                        </div>
+
+                        <button onclick="filterSummary()" class="bg-teal-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-teal-700 h-[38px] transition shadow-sm flex items-center">
+
+                            <i class="bi bi-search mr-2"></i> ค้นหา
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex flex-col h-full">
+
+                        <div class="p-4 bg-green-50/50 border-b border-green-100 flex justify-between items-center">
+
+                            <h4 class="font-bold text-green-800 flex items-center text-sm"><i class="bi bi-check-circle-fill mr-2"></i>เยี่ยมแล้ว</h4>
+
+                            <span id="summary-completed-count" class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">0</span>
+
+                        </div>
+
+                        <div class="overflow-x-auto flex-grow">
+
+                             <table class="w-full text-sm text-left">
+
+                                <thead class="text-xs text-gray-500 uppercase bg-gray-50 border-b border-gray-100">
+
+                                    <tr>
+
+                                        <th class="p-3">ผู้ป่วย</th>
+
+                                        <th class="p-3">Zone</th>
+
+                                        <th class="p-3">Multiple Impairment</th>
+
+                                        <th class="p-3 text-center">BI (ก่อน/หลัง)</th>
+
+                                        <th class="p-3 text-center">สถานะ</th>
+
+                                        <th class="p-3 text-center">Budget</th>
+
+                                    </tr>
+
+                                </thead>
+
+                                <tbody id="summary-completed-table-body" class="divide-y divide-gray-100"></tbody>
+
+                            </table>
+
+                        </div>
+
+                    </div>
+
+                    
+
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex flex-col h-full">
+
+                        <div class="p-4 bg-yellow-50/50 border-b border-yellow-100 flex justify-between items-center">
+
+                            <h4 class="font-bold text-yellow-800 flex items-center text-sm"><i class="bi bi-clock-fill mr-2"></i>รอเยี่ยม</h4>
+
+                            <span id="summary-pending-count" class="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-xs font-bold">0</span>
+
+                        </div>
+
+                         <div class="overflow-x-auto flex-grow">
+
+                             <table class="w-full text-sm text-left">
+
+                                <thead class="text-xs text-gray-500 uppercase bg-gray-50 border-b border-gray-100">
+
+                                    <tr>
+
+                                        <th class="p-3">ผู้ป่วย</th>
+
+                                        <th class="p-3">Zone</th>
+
+                                        <th class="p-3">Multiple Impairment</th>
+
+                                        <th class="p-3 text-center">BI (ล่าสุด)</th>
+
+                                        <th class="p-3 text-center">สถานะ</th>
+
+                                    </tr>
+
+                                </thead>
+
+                                <tbody id="summary-pending-table-body" class="divide-y divide-gray-100"></tbody>
+
+                            </table>
+
+                        </div>
+
+                    </div>
+
+                </div> 
+
+            </div>
+
+
+
+        </main>
+
+    </div>
+
+    <div id="mobile-sidebar-overlay" class="fixed inset-0 bg-slate-900/50 z-30 hidden md:hidden" onclick="toggleMobileMenu()"></div>
+
+
+
+    <aside id="mobile-sidebar" class="fixed inset-y-0 left-0 w-64 bg-white shadow-xl z-40 transform -translate-x-full transition-transform duration-300 ease-in-out md:hidden flex flex-col">
+
+        <div class="h-16 flex items-center px-6 border-b border-gray-100">
+
+            <span class="font-bold text-teal-600 text-xl">สุขกาย IMC Plus</span>
+
+        </div>
+
+        <div class="flex-1 overflow-y-auto py-4 px-4 space-y-2">
+
+            <a href="#" onclick="showDashboardView()" class="nav-link-mobile flex items-center p-3 rounded-lg text-gray-600 hover:bg-teal-50">
+
+                <i class="bi bi-grid-1x2-fill mr-3"></i> ภาพรวม
+
+            </a>
+
+            <a href="#" onclick="showListView()" class="nav-link-mobile flex items-center p-3 rounded-lg text-gray-600 hover:bg-teal-50">
+
+                <i class="bi bi-people-fill mr-3"></i> ทะเบียนผู้ป่วย
+
+            </a>
+
+            <a href="#" onclick="showServiceView()" class="nav-link-mobile flex items-center p-3 rounded-lg text-gray-600 hover:bg-teal-50">
+
+                <i class="bi bi-clipboard2-pulse-fill mr-3"></i> เข้ารับบริการ
+
+            </a>
+
+            <a href="#" onclick="showScheduleView()" class="nav-link-mobile flex items-center p-3 rounded-lg text-gray-600 hover:bg-teal-50">
+
+                <i class="bi bi-calendar-check-fill mr-3"></i> ตารางนัดหมาย
+
+            </a>
+
+            <a href="#" onclick="showSummaryView()" class="nav-link-mobile flex items-center p-3 rounded-lg text-gray-600 hover:bg-teal-50">
+
+                <i class="bi bi-file-earmark-bar-graph-fill mr-3"></i> สรุปผลรายวัน
+
+            </a>
+
+        </div>
+
+        <div class="p-4 border-t border-gray-100">
+
+            <button onclick="logout()" class="w-full flex items-center p-3 text-red-500 font-bold">
+
+                <i class="bi bi-box-arrow-left mr-3"></i> ออกจากระบบ
+
+            </button>
+
+        </div>
+
+    </aside>
+
+  </div>
+
+
+
+  <div class="modal fade" id="patientModal" tabindex="-1">
+
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+
+            <div class="modal-content rounded-xl border-0 shadow-lg">
+
+                <div class="modal-header bg-teal-600 text-white rounded-t-xl">
+
+                    <h5 class="modal-title font-bold text-lg" id="patientModalLabel"></h5>
+
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+
+                </div>
+
+                <div class="modal-body bg-gray-50 p-6">
+
+                    <form id="patient-form" class="space-y-6">
+
+                        <input type="hidden" id="PatientID" name="PatientID">
+
+                        <input type="hidden" id="photoData" name="photoData">
+
+                        <input type="hidden" id="PatientPhotoURL" name="PatientPhotoURL">
+
+                        
+
+                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+
+                             <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+
+                                <div class="col-span-1 text-center">
+
+                                    <img id="photoPreview" class="w-40 h-52 object-cover rounded-lg shadow-sm mb-3 mx-auto border" src="https://placehold.co/200x250/E2E8F0/A0AEC0?text=รูปภาพ">
+
+                                    <input type="file" id="photoUpload" onchange="handlePhotoUpload(event)" accept="image/*" class="text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 w-full">
+
+                                </div>
+
+                                <div class="col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4 content-start">
+
+                                    <div><label class="label">CN</label><input type="text" id="ClinicNumber" name="ClinicNumber" class="input"></div>
+
+                                    <div><label class="label">เลข ปชช.</label><input type="text" id="NationalID" name="NationalID" class="input"></div>
+
+                                    <div class="md:col-span-2"><label class="label required">ชื่อ-สกุล</label><input type="text" id="PatientName" name="PatientName" class="input" required></div>
+
+                                    <div><label class="label">เพศ</label><select id="Gender" name="Gender" class="input"><option value="">เลือก...</option><option>ชาย</option><option>หญิง</option></select></div>
+
+                                    <div>
+
+                                        <label class="label">วันเกิด</label>
+
+                                        <div class="flex gap-2">
+
+                                            <input type="date" id="DateOfBirth" name="DateOfBirth" onchange="document.getElementById('calculatedAge').textContent = calculateAge(this.value)" class="input w-2/3">
+
+                                            <div id="calculatedAge" class="input w-1/3 bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-600"></div>
+
+                                        </div>
+
+                                    </div>
+
+                                    <div><label class="label">สถานภาพ</label><select id="MaritalStatus" name="MaritalStatus" class="input"><option value="">เลือก...</option><option>โสด</option><option>สมรส</option><option>หย่าร้าง</option><option>หม้าย</option></select></div>
+
+                                    <div>
+
+                                        <label class="label">สิทธิ์การรักษา</label>
+
+                                        <select id="TreatmentRights" name="TreatmentRights" class="input" onchange="toggleTreatmentRightsOther()"><option value="">เลือก...</option><option>หลักประกันสุขภาพแห่งชาติ (บัตรทอง)</option><option>ประกันสังคม</option><option>สวัสดิการรักษาพยาบาลข้าราชการ</option><option>อื่นๆ</option></select>
+
+                                        <div id="treatment-rights-other-container" style="display:none;" class="mt-2">
+
+                                            <input type="text" id="TreatmentRightsOther" name="TreatmentRightsOther" class="input" placeholder="ระบุสิทธิ์การรักษา">
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                             </div>
+
+                        </div>
+
+
+
+                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+
+                            <h4 class="font-bold text-gray-700 mb-3 border-b pb-1">ที่อยู่ปัจจุบัน</h4>
+
+                            <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+
+                                <div class="col-span-1"><label class="label">บ้านเลขที่</label><input type="text" id="HouseNumber" name="HouseNumber" class="input"></div>
+
+                                <div class="col-span-1"><label class="label">หมู่ที่</label><input type="text" id="Moo" name="Moo" class="input"></div>
+
+                                <div class="col-span-2 md:col-span-2"><label class="label">จังหวัด</label><select id="Province" name="Province" class="input w-full"></select></div>
+
+                                <div class="col-span-2 md:col-span-2"><label class="label">อำเภอ</label><select id="Amphoe" name="Amphoe" class="input w-full"></select></div>
+
+                                <div class="col-span-2 md:col-span-2"><label class="label">ตำบล</label><select id="Tambon" name="Tambon" class="input w-full"></select></div>
+
+                                <div class="col-span-2 md:col-span-2"><label class="label">รหัสไปรษณีย์</label><input type="text" id="PostalCode" name="PostalCode" class="input bg-gray-100" readonly></div>
+
+                            </div>
+
+                        </div>
+
+
+
+                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+
+                             <h4 class="font-bold text-gray-700 mb-3 border-b pb-1">ข้อมูลทางการแพทย์</h4>
+
+                             <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+
+                                 <div><label class="label">น้ำหนัก (กก.)</label><input type="number" id="Weight" name="Weight" class="input"></div>
+
+                                 <div><label class="label">ส่วนสูง (ซม.)</label><input type="number" id="Height" name="Height" class="input"></div>
+
+                                 <div class="col-span-2"><label class="label">IMC Dx.</label><select id="IMCDx" name="IMCDx" class="input" onchange="toggleStrokeType()"><option value="">เลือก...</option><option>Stroke</option><option>Fx.HIP</option><option>SCI</option><option>TBI</option></select></div>
+
+                                 <div id="stroke-type-container" style="display:none;" class="col-span-2"><label class="label">ชนิด Stroke</label><select id="StrokeType" name="StrokeType" class="input"><option value="">เลือก...</option><option>Hemorrhage</option><option>Ischemic</option></select></div>
+
+                                 <div class="col-span-2"><label class="label">ICD 10</label><input type="text" id="ICD10" name="ICD10" class="input"></div>
+
+                                 <div class="col-span-2"><label class="label">BI แรกรับ</label><input type="number" id="InitialBI" name="InitialBI" class="input"></div>
+
+                                 <div class="col-span-2"><label class="label">Admit Date</label><input type="date" id="AdmitDate" name="AdmitDate" class="input"></div>
+
+                                 <div class="col-span-2"><label class="label">Discharge Date</label><input type="date" id="DischargeDate" name="DischargeDate" class="input"></div>
+
+                                 <div class="col-span-2"><label class="label text-red-500">วันครบกำหนด</label><input type="date" id="DueDate" name="DueDate" class="input border-red-200"></div>
+
+                             </div>
+
+                             <div class="mt-3">
+
+                                <label class="label">แพ้ยา/ข้อควรระวัง</label>
+
+                                <div id="allergies-container" class="mt-1 p-2 border rounded-md bg-red-50"></div>
+
+                            </div>
+
+                        </div>
+
+
+
+                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+
+                             <h4 class="font-bold text-gray-700 mb-3 border-b pb-1">ผู้ดูแลและการติดต่อ</h4>
+
+                             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+                                 <div><label class="label">ชื่อผู้ดูแลหลัก</label><input type="text" id="CaregiverName" name="CaregiverName" class="input"></div>
+
+                                 <div><label class="label">ความเกี่ยวข้อง</label><select id="CaregiverRelationship" name="CaregiverRelationship" class="input"></select></div>
+
+                                 <div><label class="label">เบอร์โทรศัพท์</label><input type="text" id="Phone" name="Phone" class="input"></div>
+
+                                 <div><label class="label">Zone</label><select id="Zone" name="Zone" class="input"></select></div>
+
+                                 <div class="md:col-span-2"><label class="label">นักกายภาพผู้ดูแล</label><select id="AssignedPT" name="AssignedPT" class="input"></select></div>
+
+                             </div>
+
+                        </div>
+
+
+
+                    </form>
+
+                </div>
+
+                <div class="modal-footer bg-gray-50 border-t-0 rounded-b-xl">
+
+                    <button type="button" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium" data-bs-dismiss="modal">ยกเลิก</button>
+
+                    <button type="button" onclick="handleFormSubmit()" class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium shadow-md">บันทึกข้อมูล</button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    
+
+    <div class="modal fade" id="scheduleModal" tabindex="-1">
+
+        <div class="modal-dialog modal-lg">
+
+            <div class="modal-content rounded-xl border-0 shadow-lg">
+
+                <div class="modal-header bg-teal-600 text-white">
+
+                    <h5 class="modal-title font-bold">กำหนดวันนัดเยี่ยมบ้าน</h5>
+
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+
+                </div>
+
+                <div class="modal-body bg-gray-50 p-6">
+
+                    <input type="hidden" id="schedulePatientId">
+
+                    <div class="mb-6 p-4 bg-white rounded-lg shadow-sm border border-l-4 border-l-teal-500">
+
+                        <p class="text-gray-700">ผู้ป่วย: <span id="schedulePatientName" class="font-bold text-lg text-gray-900 ml-2"></span></p>
+
+                        <p class="text-gray-500 text-sm">วันครบกำหนด: <span id="scheduleDueDate" class="font-semibold text-red-500"></span></p>
+
+                    </div>
+
+                    <div class="row gy-3" id="schedule-date-inputs"></div>
+
+                </div>
+
+                <div class="modal-footer bg-white">
+
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+
+                    <button type="button" onclick="handleSaveSchedules()" class="btn btn-teal text-white bg-teal-600 hover:bg-teal-700">บันทึก</button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    
+
+    <div class="modal fade" id="downloadModal" tabindex="-1">
+
+        <div class="modal-dialog modal-dialog-centered">
+
+            <div class="modal-content rounded-xl shadow-lg border-0">
+
+                <div class="modal-header bg-gray-800 text-white">
+
+                    <h5 class="modal-title font-bold"><i class="bi bi-cloud-download mr-2"></i>ดาวน์โหลดเอกสาร</h5>
+
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+
+                </div>
+
+                <div class="modal-body p-0">
+
+                    <div class="p-4 bg-gray-50 border-b">
+
+                        <p class="text-sm text-gray-500">เอกสารของ: <span id="downloadPatientName" class="font-bold text-gray-800 text-base"></span></p>
+
+                    </div>
+
+                    <div id="download-list-container" class="p-4" style="max-height: 400px; overflow-y: auto;"></div>
+
+                </div>
+
+                <div class="modal-footer bg-white">
+
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ปิด</button>
+
+                    <button type="button" onclick="handleDownloadSelected()" class="btn btn-primary btn-sm"><i class="bi bi-download mr-1"></i> ดาวน์โหลดที่เลือก</button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <script src="bridge-proxy.js"></script>
+  <script src="app.js"></script>
+  <script src="pwa.js"></script>
+
+</body>
+
+</html>
+
