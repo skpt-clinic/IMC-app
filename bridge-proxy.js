@@ -23,52 +23,78 @@
     return error;
   }
 
+  let bridgeIframe = null;
+
   function ensureBridgeWindow() {
-    if (bridgeWindow && !bridgeWindow.closed) return bridgeWindow;
+    if (bridgeWindow) {
+      if (bridgeIframe) return bridgeWindow;
+      if (!bridgeWindow.closed) return bridgeWindow;
+    }
 
-    bridgeWindow = window.open(
-      'about:blank',
-      'gasBridge',
-      'popup=yes,width=1,height=1,left=0,top=0'
-    );
-
-    if (!bridgeWindow) return null;
+    // Try finding existing iframe
+    bridgeIframe = document.getElementById('gas-bridge-iframe');
+    if (bridgeIframe) {
+      bridgeWindow = bridgeIframe.contentWindow;
+      return bridgeWindow;
+    }
 
     try {
-      bridgeWindow.focus();
-    } catch (error) {
-      // Ignore focus errors on browsers that block it.
+      bridgeIframe = document.createElement('iframe');
+      bridgeIframe.id = 'gas-bridge-iframe';
+      bridgeIframe.style.display = 'none';
+      bridgeIframe.style.width = '0';
+      bridgeIframe.style.height = '0';
+      bridgeIframe.style.border = 'none';
+      document.body.appendChild(bridgeIframe);
+      bridgeWindow = bridgeIframe.contentWindow;
+    } catch (e) {
+      // Fallback to popup if iframe fails or is not supported
+      bridgeWindow = window.open(
+        'about:blank',
+        'gasBridge',
+        'popup=yes,width=1,height=1,left=0,top=0'
+      );
     }
 
     return bridgeWindow;
   }
 
   function navigateBridgeWindow() {
-    if (!bridgeWindow || bridgeWindow.closed || bridgeWindowNavigated) return;
-    try {
-      bridgeWindow.location.replace(GAS_BRIDGE_URL);
-      bridgeWindowNavigated = true;
-    } catch (error) {
-      // If replace is blocked for any reason, fall back to direct assignment.
+    if (bridgeWindowNavigated) return;
+    ensureBridgeWindow();
+
+    if (bridgeIframe) {
       try {
-        bridgeWindow.location.href = GAS_BRIDGE_URL;
+        bridgeIframe.src = GAS_BRIDGE_URL;
         bridgeWindowNavigated = true;
-      } catch (innerError) {
+      } catch (error) {
         bridgeWindowNavigated = false;
-        throw innerError;
+        throw error;
+      }
+    } else if (bridgeWindow) {
+      if (bridgeWindow.closed) return;
+      try {
+        bridgeWindow.location.replace(GAS_BRIDGE_URL);
+        bridgeWindowNavigated = true;
+      } catch (error) {
+        try {
+          bridgeWindow.location.href = GAS_BRIDGE_URL;
+          bridgeWindowNavigated = true;
+        } catch (innerError) {
+          bridgeWindowNavigated = false;
+          throw innerError;
+        }
       }
     }
   }
 
   function prewarmBridgeWindow() {
-    if (bridgeWindow && !bridgeWindow.closed) return;
-    if (ensureBridgeWindow()) {
-      bridgeWindowNavigated = false;
-    }
+    ensureBridgeWindow();
+    navigateBridgeWindow();
   }
 
   function flushQueue() {
-    if (!bridgeReady || !bridgeWindow || bridgeWindow.closed) return;
+    if (!bridgeReady || !bridgeWindow || (bridgeWindow && bridgeWindow.closed === true)) return;
     while (queuedCalls.length) {
       bridgeWindow.postMessage(queuedCalls.shift(), '*');
     }
@@ -82,7 +108,7 @@
 
     navigateBridgeWindow();
 
-    if (!bridgeReady || targetWindow.closed) {
+    if (!bridgeReady || (bridgeWindow && bridgeWindow.closed === true)) {
       queuedCalls.push(payload);
       return;
     }
@@ -120,8 +146,11 @@
     }
   });
 
-  window.addEventListener('pointerdown', prewarmBridgeWindow, { once: true, capture: true });
-  window.addEventListener('focusin', prewarmBridgeWindow, { once: true, capture: true });
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', prewarmBridgeWindow);
+  } else {
+    prewarmBridgeWindow();
+  }
 
   function invoke(method, args, successHandler, failureHandler) {
     const id = `gas-call-${Date.now()}-${++callId}`;
