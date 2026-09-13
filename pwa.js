@@ -66,9 +66,7 @@
     if (mainApp) mainApp.style.display = 'none';
     if (authContainer) {
       authContainer.style.removeProperty('display');
-      if (window.getComputedStyle(authContainer).display === 'none') {
-        authContainer.style.display = 'flex';
-      }
+      if (window.getComputedStyle(authContainer).display === 'none') authContainer.style.display = 'flex';
     }
 
     const userInput = document.getElementById('login-username');
@@ -87,12 +85,10 @@
 
   async function authLogout(event) {
     if (event && typeof event.preventDefault === 'function') event.preventDefault();
-
     if (typeof Swal === 'undefined') {
       await performSupabaseLogout();
       return false;
     }
-
     const result = await Swal.fire({
       title: 'ออกจากระบบ',
       text: 'คุณต้องการออกจากระบบหรือไม่?',
@@ -104,7 +100,6 @@
       cancelButtonText: 'ยกเลิก',
       reverseButtons: true
     });
-
     if (result.isConfirmed) await performSupabaseLogout();
     return false;
   }
@@ -113,16 +108,12 @@
   window.performLogout = performSupabaseLogout;
 
   document.addEventListener('click', function (event) {
-    const target = event.target && event.target.closest
-      ? event.target.closest('a, button')
-      : null;
+    const target = event.target && event.target.closest ? event.target.closest('a, button') : null;
     if (!target) return;
-
     const text = (target.textContent || '').trim();
     const inlineHandler = target.getAttribute('onclick') || '';
     const isLogout = text === 'ออกจากระบบ' || /logout\s*\(/i.test(inlineHandler);
     if (!isLogout) return;
-
     event.preventDefault();
     event.stopPropagation();
     authLogout(event);
@@ -132,11 +123,16 @@
     return authLogout(event);
   };
 
-  // Load summary overrides after app.js so they can safely replace the legacy renderer.
+  // Load UI overrides after app.js.
   const summaryFixScript = document.createElement('script');
-  summaryFixScript.src = './summary-fix.js?v=20260913_1';
+  summaryFixScript.src = './summary-fix.js?v=20260913_2';
   summaryFixScript.async = false;
   document.head.appendChild(summaryFixScript);
+
+  const patientListFixScript = document.createElement('script');
+  patientListFixScript.src = './patient-list-fix.js?v=20260913_1';
+  patientListFixScript.async = false;
+  document.head.appendChild(patientListFixScript);
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
