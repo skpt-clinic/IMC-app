@@ -57,6 +57,42 @@
       .replace(/'/g, '&#039;');
   }
 
+  async function enrichTherapists(rows) {
+    const result = (rows || []).map(r => ({ ...r }));
+    if (!window.supabaseClient) return result;
+
+    const pids = [...new Set(result.map(r => String(r.patientId || '').trim()).filter(Boolean))];
+    if (!pids.length) return result;
+
+    try {
+      const [opdRes, soapRes] = await Promise.all([
+        window.supabaseClient.from('OPDRecords').select('PatientID, VisitDate, VisitCount, TherapistName').in('PatientID', pids),
+        window.supabaseClient.from('SOAPNotes').select('PatientID, VisitDate, VisitCount, TherapistName').in('PatientID', pids)
+      ]);
+
+      if (opdRes.error) console.warn('Summary OPD therapist query:', opdRes.error);
+      if (soapRes.error) console.warn('Summary SOAP therapist query:', soapRes.error);
+
+      const therapistMap = {};
+      [...(opdRes.data || []), ...(soapRes.data || [])].forEach(record => {
+        const pid = String(record.PatientID || '').trim();
+        const date = normalizeSummaryDate(record.VisitDate || record.Date);
+        if (!pid || !date) return;
+        const key = `${pid}_${date}`;
+        const name = String(record.TherapistName || '').trim();
+        if (name && !therapistMap[key]) therapistMap[key] = name;
+      });
+
+      result.forEach(row => {
+        const key = `${String(row.patientId || '').trim()}_${normalizeSummaryDate(row.date || row.visitDate)}`;
+        row.therapistName = therapistMap[key] || row.therapistName || row.TherapistName || row.assignedPT || '-';
+      });
+    } catch (e) {
+      console.warn('Unable to enrich summary therapist names:', e);
+    }
+    return result;
+  }
+
   window.openSummaryEMR = function (patientId) {
     const pid = String(patientId || '').trim();
     if (!pid) return;
@@ -74,7 +110,6 @@
     setTimeout(openTab, 150);
   };
 
-  // Keep Budget UI behavior from the original implementation.
   function getBudgetMeta(status) {
     const normalized = status === 'รับยอด' ? 'รับยอด' : 'รอโอน';
     return normalized === 'รับยอด'
@@ -160,7 +195,7 @@
         </tr>`;
 
       groups[date].forEach(item => {
-        const therapist = String(item.therapistName || item.TherapistName || '-').trim() || '-';
+        const therapist = String(item.therapistName || item.TherapistName || item.assignedPT || '-').trim() || '-';
         const style = therapistStyle(therapist);
         const biBefore = item.biBefore ?? item.initialBI ?? '-';
         const biAfterValue = item.biAfter ?? item.latestBI ?? '-';
@@ -169,12 +204,13 @@
           <i class="bi bi-arrow-right mx-1 text-gray-300"></i>
           <span class="text-teal-600 font-bold">${escapeHtml(biAfterValue)}</span>`;
 
-        const imps = item.multipleImpairment?.imps ?? '';
-        const fxs = item.multipleImpairment?.fxs ?? '';
-        const impsText = imps ? `<span class="text-blue-600 font-medium">${escapeHtml(imps)}</span>` : '';
-        const fxsText = fxs ? `<span class="text-orange-500 font-medium">${escapeHtml(fxs)}</span>` : '';
-        const impairmentHtml = impsText || fxsText
-          ? `${impsText}${impsText && fxsText ? '<br>' : ''}${fxsText}`
+        // The Supabase adapter currently returns multipleImpairment as a string.
+        // Also support the object shape used by the legacy renderer.
+        const impairmentValue = typeof item.multipleImpairment === 'string'
+          ? item.multipleImpairment
+          : [item.multipleImpairment?.imps, item.multipleImpairment?.fxs].filter(Boolean).join('<br>');
+        const impairmentHtml = impairmentValue
+          ? `<span class="text-blue-600 font-medium">${escapeHtml(String(impairmentValue).replace(/<br>/g, ' / '))}</span>`
           : '<span class="text-gray-400">-</span>';
 
         const statusText = `เยี่ยมแล้วครั้งที่ ${item.visitNumber ?? '-'}`;
@@ -224,22 +260,21 @@
     bindBudgetSelects();
   }
 
-  // Override the original summary renderer so the existing menu continues to work.
   window.renderDailySummary = function (start, end) {
     showLoading('กำลังโหลดข้อมูลสรุป...');
     google.script.run
-      .withSuccessHandler(response => {
+      .withSuccessHandler(async response => {
         Swal.close();
         if (!response || response.status !== 'success') {
           return showError({ message: response?.message || 'ไม่สามารถโหลดข้อมูลสรุปได้' });
         }
 
-        // Supabase adapter now returns `visited`; support the legacy names too.
         const visited = Array.isArray(response.visited) ? response.visited : (response.completedVisits || []);
-        renderSummaryTable(visited);
+        const enrichedVisited = await enrichTherapists(visited);
+        renderSummaryTable(enrichedVisited);
 
         const completedCount = document.getElementById('summary-completed-count');
-        if (completedCount) completedCount.textContent = visited.length;
+        if (completedCount) completedCount.textContent = enrichedVisited.length;
 
         const pendingCount = document.getElementById('summary-pending-count');
         if (pendingCount) pendingCount.textContent = 0;
