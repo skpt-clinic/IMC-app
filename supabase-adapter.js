@@ -202,7 +202,7 @@
         ] = await Promise.all([
           client.from('Dropdowns').select('*'),
           client.from('Patients').select('*'),
-          client.from('BIAssessments').select('PatientID, TotalScore, AssessmentDate, impairment_swallowing, impairment_communicate, impairment_mobility, impairment_cognitive, impairment_bowel, fx_bathroom, fx_bed, fx_movement, fx_stairs, BI_impairment_swallowing, BI_impairment_communicate, BI_impairment_mobility, BI_impairment_cognitive, BI_impairment_bowel, BI_fx_bathroom, BI_fx_bed, BI_fx_movement, BI_fx_stairs'),
+          client.from('BIAssessments').select('*'),
           client.from('OPDRecords').select('PatientID, VisitDate, VisitCount'),
           client.from('SOAPNotes').select('PatientID, VisitDate, VisitCount'),
           client.from('Schedules').select('*'),
@@ -392,10 +392,21 @@
 
     async adminListUsers() {
       try {
+        // 1. First try dedicated RPC (SECURITY DEFINER, bypasses any restrictive RLS)
+        try {
+          const { data: rpcUsers, error: rpcErr } = await client.rpc('rpc_admin_list_users');
+          if (!rpcErr && rpcUsers && Array.isArray(rpcUsers) && rpcUsers.length > 0) {
+            return { status: 'success', users: rpcUsers };
+          }
+        } catch (rpcEx) {
+          console.warn('rpc_admin_list_users notice:', rpcEx);
+        }
+
+        // 2. Direct query fallback
         const { data: users, error } = await client
           .from('Users')
-          .select('"UserID", "FullName", "Email", "Username", "CreatedAt", "auth_user_id"')
-          .order('CreatedAt', { ascending: false });
+          .select('"UserID", "FullName", "Email", "Username", "CreatedAt"')
+          .order('UserID', { ascending: true });
         if (error) throw error;
 
         // Fetch Admin list from Settings

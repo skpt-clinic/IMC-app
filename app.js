@@ -91,17 +91,17 @@ document.addEventListener('DOMContentLoaded', function() {
     scheduleModal = new bootstrap.Modal(document.getElementById('scheduleModal'));
     downloadModal = new bootstrap.Modal(document.getElementById('downloadModal')); 
     // Event Listeners for Auth Forms
-    document.getElementById('login-form').addEventListener('submit', handleLoginSubmit);
-    document.getElementById('register-form').addEventListener('submit', handleRegistrationSubmit);
-    document.getElementById('show-register-link').addEventListener('click', showRegisterView);
-    document.getElementById('show-login-link').addEventListener('click', showLoginView);
+    document.getElementById('login-form')?.addEventListener('submit', handleLoginSubmit);
+    document.getElementById('register-form')?.addEventListener('submit', handleRegistrationSubmit);
+    document.getElementById('show-register-link')?.addEventListener('click', showRegisterView);
+    document.getElementById('show-login-link')?.addEventListener('click', showLoginView);
     // --- END: สิ้นสุดการเพิ่มโค้ด ---
     // Setup real-time clock
     updateClock();
     setInterval(updateClock, 1000);
 
     // Event Listener for Mobile Menu Toggle
-    document.getElementById('menu-toggle').addEventListener('click', toggleMobileMenu);
+    document.getElementById('menu-toggle')?.addEventListener('click', toggleMobileMenu);
     if (!(typeof SERVER_VIEW_MODE !== 'undefined' && SERVER_VIEW_MODE === 'reset' && SERVER_RESET_TOKEN)) {
         const savedUser = getSavedLoginSession();
         if (savedUser) {
@@ -4513,8 +4513,8 @@ async function loadAdminUserList() {
             const roleBadge = isAdmin
                 ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#b45309;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700"><i class="bi bi-shield-fill"></i> Admin</span>'
                 : '<span style="display:inline-flex;align-items:center;gap:4px;background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700"><i class="bi bi-person-fill"></i> User</span>';
-            const toggleBtn = isSelf ? '' : `<button onclick="adminToggleRole('${u.Username}','${isAdmin ? 'user' : 'admin'}')" style="font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid ${isAdmin ? '#fcd34d' : '#93c5fd'};color:${isAdmin ? '#b45309' : '#1d4ed8'};cursor:pointer;background:#fff">${isAdmin ? '<i class="bi bi-person-dash-fill"></i> ถอด Admin' : '<i class="bi bi-person-badge-fill"></i> แต่งตั้ง Admin'}</button>`;
-            const resetBtn  = isSelf ? '' : `<button onclick="adminResetPassword('${u.Username}')" style="font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid #d1d5db;color:#374151;cursor:pointer;background:#fff;margin-left:4px"><i class="bi bi-key"></i> รีเซ็ตรหัสผ่าน</button>`;
+            const toggleBtn = isSelf ? '' : `<button onclick="adminToggleRole('${u.Username}','${isAdmin ? 'user' : 'admin'}')" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid ${isAdmin ? '#fcd34d' : '#93c5fd'};color:${isAdmin ? '#b45309' : '#1d4ed8'};cursor:pointer;background:#fff" title="${isAdmin ? 'ถอดสิทธิ์ผู้ดูแลระบบ' : 'แต่งตั้งเป็นผู้ดูแลระบบ'}">${isAdmin ? '<i class="bi bi-person-dash-fill"></i> ถอด Admin' : '<i class="bi bi-person-badge-fill"></i> แต่งตั้ง Admin'}</button>`;
+            const resetBtn  = `<button onclick="adminResetPassword('${u.Username}')" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid #d1d5db;color:#374151;cursor:pointer;background:#fff;margin-left:4px" title="ตั้งรหัสผ่านใหม่"><i class="bi bi-key"></i> แก้ไขรหัสผ่าน</button>`;
             return `<tr style="border-bottom:1px solid #f3f4f6">
                 <td style="padding:12px 16px;font-weight:600;color:#1f2937">${u.Username}${isSelf ? ' <span style="color:#0d9488;font-size:11px;font-weight:400">(คุณ)</span>' : ''}</td>
                 <td style="padding:12px 16px;color:#4b5563">${u.FullName || '-'}</td>
