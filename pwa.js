@@ -134,6 +134,11 @@
   patientListFixScript.async = false;
   document.head.appendChild(patientListFixScript);
 
+  const bodyChartSupabaseScript = document.createElement('script');
+  bodyChartSupabaseScript.src = './body-chart-supabase.js?v=20260913_1';
+  bodyChartSupabaseScript.async = false;
+  document.head.appendChild(bodyChartSupabaseScript);
+
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js').catch((error) => {
