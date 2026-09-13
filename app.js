@@ -1,4 +1,4 @@
-﻿// =================================================================
+// =================================================================
 // 1. GLOBAL STATE & CONFIGURATION
 // =================================================================
 Chart.register(ChartDataLabels);
@@ -59,6 +59,14 @@ function openMainAppForUser(user, persistSession = true) {
     const mainApp = document.getElementById('main-app');
     if (authContainer) authContainer.style.display = 'none';
     if (mainApp) mainApp.style.display = 'flex';
+    // Show admin sections if user is admin, otherwise hide them
+    document.querySelectorAll('.admin-only-section').forEach(el => {
+        if (user && user.role === 'admin') {
+            el.style.display = '';
+        } else {
+            el.style.display = 'none';
+        }
+    });
     showLoading('กำลังโหลดข้อมูลเริ่มต้น...');
     google.script.run
         .withSuccessHandler(setupInitialUI)
@@ -4422,13 +4430,201 @@ function performLogout() {
     // allPatients = []; // ถ้าต้องการให้โหลดใหม่หมดเมื่อ Login ครั้งหน้า ให้เปิดบรรทัดนี้
 }
 
-/**
- * Placeholder function for showing the change password modal.
- * (We will implement this in the next step)
- */
+// =================================================================
+// CHANGE PASSWORD (for current logged-in user)
+// =================================================================
 function showChangePasswordModal() {
-    Swal.fire('เร็วๆ นี้!', 'ฟังก์ชันสำหรับเปลี่ยนรหัสผ่านกำลังอยู่ในระหว่างการพัฒนา', 'info');
-    // TODO: Create a modal and form for changing the password.
+    Swal.fire({
+        title: 'เปลี่ยนรหัสผ่าน',
+        html: `
+            <div class="text-left" style="margin-top:10px">
+                <div style="margin-bottom:10px">
+                    <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;color:#374151">รหัสผ่านปัจจุบัน</label>
+                    <input id="swal-old-password" type="password" class="swal2-input" style="margin:0;width:100%" placeholder="รหัสผ่านปัจจุบัน">
+                </div>
+                <div style="margin-bottom:10px">
+                    <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;color:#374151">รหัสผ่านใหม่</label>
+                    <input id="swal-new-password" type="password" class="swal2-input" style="margin:0;width:100%" placeholder="รหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)">
+                </div>
+                <div>
+                    <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;color:#374151">ยืนยันรหัสผ่านใหม่</label>
+                    <input id="swal-confirm-password" type="password" class="swal2-input" style="margin:0;width:100%" placeholder="ยืนยันรหัสผ่านใหม่">
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'บันทึก',
+        cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#0d9488',
+        cancelButtonColor: '#6b7280',
+        showLoaderOnConfirm: true,
+        didOpen: () => { document.getElementById('swal-old-password').focus(); },
+        preConfirm: async () => {
+            const oldPw  = document.getElementById('swal-old-password').value.trim();
+            const newPw  = document.getElementById('swal-new-password').value.trim();
+            const confPw = document.getElementById('swal-confirm-password').value.trim();
+            if (!oldPw || !newPw || !confPw) { Swal.showValidationMessage('กรุณากรอกข้อมูลให้ครบทุกช่อง'); return false; }
+            if (newPw.length < 6) { Swal.showValidationMessage('รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 6 ตัวอักษร'); return false; }
+            if (newPw !== confPw) { Swal.showValidationMessage('รหัสผ่านใหม่และยืนยันรหัสผ่านไม่ตรงกัน'); return false; }
+            try {
+                const res = await google.script.run.changeOwnPassword(oldPw, newPw);
+                if (res && res.status === 'error') { Swal.showValidationMessage(res.message || 'เกิดข้อผิดพลาด'); return false; }
+                return res;
+            } catch (err) { Swal.showValidationMessage('เกิดข้อผิดพลาด: ' + (err.message || err)); return false; }
+        },
+        allowOutsideClick: () => !Swal.isLoading()
+    }).then(result => {
+        if (result.isConfirmed) {
+            Swal.fire({ icon: 'success', title: 'เปลี่ยนรหัสผ่านสำเร็จ', text: 'รหัสผ่านของคุณถูกเปลี่ยนเรียบร้อยแล้ว', timer: 2500, showConfirmButton: false });
+        }
+    });
+}
+
+// =================================================================
+// ADMIN PANEL FUNCTIONS
+// =================================================================
+function showAdminView() {
+    if (!loggedInUser || loggedInUser.role !== 'admin') {
+        Swal.fire({ icon: 'error', title: 'ไม่มีสิทธิ์', text: 'เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถเข้าถึงหน้านี้ได้' });
+        return;
+    }
+    setActiveView('admin-view', 'จัดการผู้ใช้งาน');
+    loadAdminUserList();
+}
+
+async function loadAdminUserList() {
+    const tbody = document.getElementById('admin-user-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-gray-400"><i class="bi bi-hourglass-split mr-2"></i>กำลังโหลด...</td></tr>';
+    try {
+        const res = await google.script.run.adminListUsers();
+        if (!res || res.status === 'error') {
+            tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-red-500"><i class="bi bi-exclamation-triangle mr-2"></i>${res && res.message ? res.message : 'โหลดข้อมูลไม่สำเร็จ'}</td></tr>`;
+            return;
+        }
+        const users = res.users || [];
+        if (users.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="p-8 text-center text-gray-400">ไม่พบข้อมูลผู้ใช้งาน</td></tr>';
+            return;
+        }
+        tbody.innerHTML = users.map(u => {
+            const isAdmin = u.Role === 'admin';
+            const isSelf  = (loggedInUser && loggedInUser.username === u.Username);
+            const roleBadge = isAdmin
+                ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#b45309;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700"><i class="bi bi-shield-fill"></i> Admin</span>'
+                : '<span style="display:inline-flex;align-items:center;gap:4px;background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700"><i class="bi bi-person-fill"></i> User</span>';
+            const toggleBtn = isSelf ? '' : `<button onclick="adminToggleRole('${u.Username}','${isAdmin ? 'user' : 'admin'}')" style="font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid ${isAdmin ? '#fcd34d' : '#93c5fd'};color:${isAdmin ? '#b45309' : '#1d4ed8'};cursor:pointer;background:#fff">${isAdmin ? '<i class="bi bi-person-dash-fill"></i> ถอด Admin' : '<i class="bi bi-person-badge-fill"></i> แต่งตั้ง Admin'}</button>`;
+            const resetBtn  = isSelf ? '' : `<button onclick="adminResetPassword('${u.Username}')" style="font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid #d1d5db;color:#374151;cursor:pointer;background:#fff;margin-left:4px"><i class="bi bi-key"></i> รีเซ็ตรหัสผ่าน</button>`;
+            return `<tr style="border-bottom:1px solid #f3f4f6">
+                <td style="padding:12px 16px;font-weight:600;color:#1f2937">${u.Username}${isSelf ? ' <span style="color:#0d9488;font-size:11px;font-weight:400">(คุณ)</span>' : ''}</td>
+                <td style="padding:12px 16px;color:#4b5563">${u.FullName || '-'}</td>
+                <td style="padding:12px 16px;text-align:center">${roleBadge}</td>
+                <td style="padding:12px 16px;text-align:center">${toggleBtn}${resetBtn}</td>
+            </tr>`;
+        }).join('');
+    } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-red-500">${err.message || 'เกิดข้อผิดพลาด'}</td></tr>`;
+    }
+}
+
+function showCreateUserModal() {
+    Swal.fire({
+        title: 'เพิ่มผู้ใช้งานใหม่',
+        html: `
+            <div class="text-left" style="margin-top:10px">
+                <div style="margin-bottom:10px">
+                    <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;color:#374151">ชื่อผู้ใช้ (Username) *</label>
+                    <input id="new-user-username" type="text" class="swal2-input" style="margin:0;width:100%" placeholder="เช่น nurse01, physio_jane" autocomplete="off">
+                </div>
+                <div style="margin-bottom:10px">
+                    <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;color:#374151">ชื่อ-สกุล *</label>
+                    <input id="new-user-fullname" type="text" class="swal2-input" style="margin:0;width:100%" placeholder="เช่น นางสาวสมใจ ใจดี" autocomplete="off">
+                </div>
+                <div style="margin-bottom:10px">
+                    <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;color:#374151">รหัสผ่านเริ่มต้น *</label>
+                    <input id="new-user-password" type="password" class="swal2-input" style="margin:0;width:100%" placeholder="อย่างน้อย 6 ตัวอักษร" autocomplete="new-password">
+                </div>
+                <div>
+                    <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;color:#374151">สิทธิ์</label>
+                    <select id="new-user-role" class="swal2-input" style="margin:0;width:100%;height:auto;padding:8px 12px">
+                        <option value="user">User (ผู้ใช้งานทั่วไป)</option>
+                        <option value="admin">Admin (ผู้ดูแลระบบ)</option>
+                    </select>
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'สร้างบัญชี',
+        cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#f59e0b',
+        cancelButtonColor: '#6b7280',
+        showLoaderOnConfirm: true,
+        didOpen: () => document.getElementById('new-user-username').focus(),
+        preConfirm: async () => {
+            const username = document.getElementById('new-user-username').value.trim();
+            const fullName = document.getElementById('new-user-fullname').value.trim();
+            const password = document.getElementById('new-user-password').value.trim();
+            const role     = document.getElementById('new-user-role').value;
+            if (!username || !fullName || !password) { Swal.showValidationMessage('กรุณากรอกข้อมูลให้ครบทุกช่องที่มี *'); return false; }
+            if (password.length < 6) { Swal.showValidationMessage('รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร'); return false; }
+            try {
+                const res = await google.script.run.adminCreateUser({ username, fullName, password, role });
+                if (res && res.status === 'error') { Swal.showValidationMessage(res.message || 'สร้างผู้ใช้ไม่สำเร็จ'); return false; }
+                return res;
+            } catch (err) { Swal.showValidationMessage('เกิดข้อผิดพลาด: ' + (err.message || err)); return false; }
+        },
+        allowOutsideClick: () => !Swal.isLoading()
+    }).then(result => {
+        if (result.isConfirmed) {
+            Swal.fire({ icon: 'success', title: 'สร้างบัญชีสำเร็จ', timer: 2500, showConfirmButton: false });
+            loadAdminUserList();
+        }
+    });
+}
+
+async function adminToggleRole(username, newRole) {
+    const action = newRole === 'admin' ? 'แต่งตั้งเป็น Admin' : 'ถอด Admin ออก';
+    const result = await Swal.fire({
+        title: `ยืนยันการ${action}`,
+        html: `คุณต้องการ<strong>${action}</strong> สำหรับผู้ใช้ <strong>${username}</strong> ใช่หรือไม่?`,
+        icon: 'question', showCancelButton: true,
+        confirmButtonText: 'ยืนยัน', cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: newRole === 'admin' ? '#f59e0b' : '#6b7280'
+    });
+    if (!result.isConfirmed) return;
+    try {
+        showLoading('กำลังอัปเดตสิทธิ์...');
+        const res = await google.script.run.adminToggleRole(username, newRole);
+        Swal.close();
+        if (res && res.status === 'error') { showError({ message: res.message }); return; }
+        showSuccessToast(`${action}สำหรับ ${username} สำเร็จ`);
+        loadAdminUserList();
+    } catch (err) { Swal.close(); showError({ message: err.message || 'เกิดข้อผิดพลาด' }); }
+}
+
+async function adminResetPassword(username) {
+    const result = await Swal.fire({
+        title: 'รีเซ็ตรหัสผ่าน',
+        html: `<div class="text-left"><p style="margin-bottom:10px">ตั้งรหัสผ่านใหม่สำหรับ <strong>${username}</strong></p>
+            <input id="swal-reset-pw" type="password" class="swal2-input" style="margin:0;width:100%" placeholder="รหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)"></div>`,
+        icon: 'warning', showCancelButton: true,
+        confirmButtonText: 'รีเซ็ตรหัสผ่าน', cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#d97706', showLoaderOnConfirm: true,
+        didOpen: () => document.getElementById('swal-reset-pw').focus(),
+        preConfirm: async () => {
+            const newPw = document.getElementById('swal-reset-pw').value.trim();
+            if (!newPw || newPw.length < 6) { Swal.showValidationMessage('รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร'); return false; }
+            try {
+                const res = await google.script.run.adminResetUserPassword(username, newPw);
+                if (res && res.status === 'error') { Swal.showValidationMessage(res.message || 'เกิดข้อผิดพลาด'); return false; }
+                return res;
+            } catch (err) { Swal.showValidationMessage('เกิดข้อผิดพลาด: ' + (err.message || err)); return false; }
+        },
+        allowOutsideClick: () => !Swal.isLoading()
+    });
+    if (result.isConfirmed) {
+        Swal.fire({ icon: 'success', title: 'รีเซ็ตสำเร็จ', text: `รหัสผ่านของ ${username} ถูกรีเซ็ตเรียบร้อยแล้ว`, timer: 2500, showConfirmButton: false });
+    }
 }
 // =================================================================
 // PASSWORD RESET FUNCTIONS

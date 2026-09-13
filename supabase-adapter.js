@@ -28,6 +28,44 @@
     return btoa(binary);
   }
 
+  function base64ToBlob(base64Data) {
+    const parts = base64Data.split(';base64,');
+    const contentType = parts[0].split(':')[1] || 'image/jpeg';
+    const raw = window.atob(parts[1]);
+    const rawLength = raw.length;
+    const uInt8Array = new Uint8Array(rawLength);
+    for (let i = 0; i < rawLength; ++i) {
+      uInt8Array[i] = raw.charCodeAt(i);
+    }
+    return new Blob([uInt8Array], { type: contentType });
+  }
+
+  async function uploadPatientPhoto(patientId, photoData) {
+    if (!photoData || !photoData.startsWith('data:image/')) return photoData;
+    try {
+      const blob = base64ToBlob(photoData);
+      const ext = blob.type.split('/')[1] || 'jpg';
+      const fileName = `${patientId}_${Date.now()}.${ext}`;
+      const { data, error } = await client.storage
+        .from('patient-photos')
+        .upload(fileName, blob, {
+          contentType: blob.type,
+          upsert: true
+        });
+      if (error) {
+        console.warn("Storage upload error, falling back to base64:", error);
+        return photoData;
+      }
+      const { data: pubData } = client.storage
+        .from('patient-photos')
+        .getPublicUrl(fileName);
+      return pubData?.publicUrl || photoData;
+    } catch (e) {
+      console.warn("Photo upload exception:", e);
+      return photoData;
+    }
+  }
+
   function formatDate(d) {
     if (!d) return "";
     const date = new Date(d);
@@ -262,14 +300,184 @@
           throw new Error('ไม่สามารถเข้าสู่ระบบ Authentication ได้ กรุณาลองใหม่อีกครั้ง');
         }
 
+        // 3. Determine user role from app_metadata or Settings table
+        let userRole = 'user';
+        try {
+          const userMetaRole = authData?.user?.app_metadata?.role;
+          if (userMetaRole === 'admin') {
+            userRole = 'admin';
+          } else {
+            const { data: setRow } = await client
+              .from('Settings')
+              .select('Value')
+              .eq('Settings', 'AdminUsers')
+              .maybeSingle();
+            if (setRow && setRow.Value) {
+              const admins = setRow.Value.split(',').map(s => s.trim().toLowerCase());
+              if (admins.includes(res.username.toLowerCase()) || admins.includes(res.email.toLowerCase())) {
+                userRole = 'admin';
+              }
+            }
+          }
+        } catch (roleErr) {
+          console.warn("Role check notice:", roleErr);
+        }
+
         return {
           status: 'success',
           user: {
             fullName: res.fullName || res.username,
             username: res.username,
-            email: res.email
+            email: res.email,
+            role: userRole
           }
         };
+      } catch (e) {
+        return { status: 'error', message: e.message };
+      }
+    },
+
+    async changeOwnPassword(oldPassword, newPassword) {
+      try {
+        if (!oldPassword || !newPassword) {
+          return { status: 'error', message: 'กรุณากรอกรหัสผ่านเดิมและรหัสผ่านใหม่' };
+        }
+        if (newPassword.length < 6) {
+          return { status: 'error', message: 'รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 6 ตัวอักษร' };
+        }
+        const { data: userData, error: userError } = await client.auth.getUser();
+        if (userError || !userData?.user?.email) {
+          return { status: 'error', message: 'ไม่พบเซสชันผู้ใช้ กรุณาเข้าสู่ระบบใหม่' };
+        }
+        // Verify old password
+        const { error: verifyError } = await client.auth.signInWithPassword({
+          email: userData.user.email,
+          password: oldPassword
+        });
+        if (verifyError) {
+          return { status: 'error', message: 'รหัสผ่านเดิมไม่ถูกต้อง' };
+        }
+        // Update password
+        const { error: updateError } = await client.auth.updateUser({ password: newPassword });
+        if (updateError) {
+          return { status: 'error', message: updateError.message || 'ไม่สามารถเปลี่ยนรหัสผ่านได้' };
+        }
+        return { status: 'success', message: 'เปลี่ยนรหัสผ่านสำเร็จเรียบร้อยแล้ว' };
+      } catch (e) {
+        return { status: 'error', message: e.message };
+      }
+    },
+
+    async adminListUsers() {
+      try {
+        const { data: users, error } = await client
+          .from('Users')
+          .select('"UserID", "FullName", "Email", "Username", "CreatedAt", "auth_user_id"')
+          .order('CreatedAt', { ascending: false });
+        if (error) throw error;
+
+        // Fetch Admin list from Settings
+        let adminList = ['nat-admin'];
+        const { data: setRow } = await client
+          .from('Settings')
+          .select('Value')
+          .eq('Settings', 'AdminUsers')
+          .maybeSingle();
+        if (setRow && setRow.Value) {
+          adminList = setRow.Value.split(',').map(s => s.trim().toLowerCase());
+        }
+
+        const enriched = (users || []).map(u => ({
+          ...u,
+          Role: adminList.includes(u.Username?.toLowerCase()) || adminList.includes(u.Email?.toLowerCase()) ? 'admin' : 'user'
+        }));
+
+        return { status: 'success', users: enriched };
+      } catch (e) {
+        return { status: 'error', message: e.message };
+      }
+    },
+
+    async adminCreateUser(userInfo) {
+      try {
+        const { fullName, email, username, password, role } = userInfo;
+        if (!fullName || !username || !password) {
+          return { status: 'error', message: 'กรุณากรอกข้อมูลให้ครบทุกช่อง' };
+        }
+        // Auto-generate email from username if not provided
+        const effectiveEmail = (email && email.includes('@')) ? email.trim() : `${username.trim().toLowerCase()}@skpt-clinic.local`;
+        const { data: res, error: rpcError } = await client.rpc('rpc_register_user', {
+          p_fullname: fullName.trim(),
+          p_email: effectiveEmail,
+          p_username: username.trim(),
+          p_password: password
+        });
+        if (rpcError || !res || res.status !== 'success') {
+          return { status: 'error', message: res?.message || rpcError?.message || 'ไม่สามารถเพิ่มผู้ใช้ได้' };
+        }
+
+        if (role === 'admin') {
+          const { data: setRow } = await client.from('Settings').select('Value').eq('Settings', 'AdminUsers').maybeSingle();
+          const currentAdmins = setRow && setRow.Value ? setRow.Value.split(',').map(s => s.trim()) : ['nat-admin'];
+          if (!currentAdmins.map(a => a.toLowerCase()).includes(username.toLowerCase())) {
+            currentAdmins.push(username.trim());
+            await client.from('Settings').upsert({ Settings: 'AdminUsers', Value: currentAdmins.join(',') });
+          }
+        }
+
+        return { status: 'success', message: 'เพิ่มผู้ใช้งานสำเร็จ' };
+      } catch (e) {
+        return { status: 'error', message: e.message };
+      }
+    },
+
+    async adminToggleRole(username, newRole) {
+      try {
+        const { data: setRow } = await client.from('Settings').select('Value').eq('Settings', 'AdminUsers').maybeSingle();
+        let admins = setRow && setRow.Value ? setRow.Value.split(',').map(s => s.trim()) : ['nat-admin'];
+        const cleanUser = username.trim().toLowerCase();
+
+        if (newRole === 'admin') {
+          if (!admins.map(a => a.toLowerCase()).includes(cleanUser)) {
+            admins.push(username.trim());
+          }
+        } else {
+          admins = admins.filter(a => a.toLowerCase() !== cleanUser);
+        }
+
+        const { error } = await client.from('Settings').upsert({ Settings: 'AdminUsers', Value: admins.join(',') });
+        if (error) throw error;
+        return { status: 'success', message: `ปรับสิทธิ์ ${username} เป็น ${newRole} เรียบร้อยแล้ว` };
+      } catch (e) {
+        return { status: 'error', message: e.message };
+      }
+    },
+
+    async adminResetUserPassword(username, newPassword) {
+      try {
+        if (!newPassword || newPassword.length < 6) {
+          return { status: 'error', message: 'รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร' };
+        }
+        // Use the rpc_admin_reset_password RPC (or fallback: update Users table hash)
+        // First try the dedicated RPC
+        const { data: rpcRes, error: rpcErr } = await client.rpc('rpc_admin_reset_password', {
+          p_username: username.trim(),
+          p_new_password: newPassword
+        });
+        if (!rpcErr && rpcRes && rpcRes.status === 'success') {
+          return { status: 'success', message: `รีเซ็ตรหัสผ่านของ ${username} สำเร็จ` };
+        }
+        // Fallback: compute SHA-256 hash and update Users table directly
+        const enc = new TextEncoder();
+        const hashBuffer = await crypto.subtle.digest('SHA-256', enc.encode(newPassword));
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const sha256hex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        const { error: updateErr } = await client
+          .from('Users')
+          .update({ Password: sha256hex })
+          .eq('Username', username.trim());
+        if (updateErr) throw updateErr;
+        return { status: 'success', message: `รีเซ็ตรหัสผ่านของ ${username} สำเร็จ` };
       } catch (e) {
         return { status: 'error', message: e.message };
       }
@@ -383,8 +591,9 @@
 
     async savePatient(patientObject) {
       try {
+        const targetId = patientObject.PatientID || crypto.randomUUID();
         if (patientObject.photoData) {
-          patientObject.PatientPhotoURL = patientObject.photoData;
+          patientObject.PatientPhotoURL = await uploadPatientPhoto(targetId, patientObject.photoData);
         }
         delete patientObject.photoData;
 
@@ -394,7 +603,7 @@
           res = await client.from('Patients').update(patientObject).eq('PatientID', patientObject.PatientID);
         } else {
           // Insert
-          patientObject.PatientID = crypto.randomUUID();
+          patientObject.PatientID = targetId;
           patientObject.Timestamp = new Date().toISOString();
           res = await client.from('Patients').insert([patientObject]);
         }
@@ -1018,7 +1227,7 @@
           }
         });
 
-        return { status: 'success', completedVisits: completed, pendingVisits: pending };
+        return { status: 'success', visited: completed, pending: pending };
       } catch (e) {
         return { status: 'error', message: e.message };
       }

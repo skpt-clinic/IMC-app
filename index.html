@@ -429,6 +429,21 @@
 
             </div>
 
+            <!-- Admin Section - shown only for admins -->
+            <div class="mt-4 admin-only-section" id="desktop-admin-section" style="display:none;">
+
+                <p class="sidebar-section-label px-3 text-[10px] font-semibold text-amber-500 uppercase tracking-wider mb-2 transition-opacity duration-300">Admin</p>
+
+                <a href="#" onclick="showAdminView()" class="nav-link group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-gray-600 hover:text-amber-600 hover:bg-amber-50 transition-all duration-200" data-view="admin">
+
+                    <i class="bi bi-shield-lock-fill nav-icon text-lg min-w-[24px] text-center text-amber-500"></i>
+
+                    <span class="sidebar-text ml-3 whitespace-nowrap transition-opacity duration-300">จัดการผู้ใช้งาน</span>
+
+                </a>
+
+            </div>
+
         </div>
 
 
@@ -447,7 +462,11 @@
 
                     <p id="username-display-sidebar" class="text-sm font-medium text-gray-700 truncate w-32">Username</p>
 
-                    <a href="#" onclick="logout()" class="text-xs text-red-500 hover:text-red-700">ออกจากระบบ</a>
+                    <div class="flex items-center gap-2">
+                        <a href="#" onclick="showChangePasswordModal()" class="text-xs text-teal-600 hover:text-teal-800">เปลี่ยนรหัสผ่าน</a>
+                        <span class="text-gray-300 text-xs">|</span>
+                        <a href="#" onclick="logout()" class="text-xs text-red-500 hover:text-red-700">ออกจากระบบ</a>
+                    </div>
 
                 </div>
 
@@ -1161,7 +1180,54 @@
 
                     </div>
 
-                </div> 
+                </div>
+
+            </div>
+
+
+
+            <!-- =============================================================== -->
+            <!-- ADMIN VIEW -->
+            <!-- =============================================================== -->
+            <div id="admin-view" class="fade-in space-y-6" style="display: none;">
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-amber-700 flex items-center gap-2">
+                                <i class="bi bi-shield-lock-fill"></i> จัดการผู้ใช้งานระบบ
+                            </h2>
+                            <p class="text-sm text-gray-500 mt-1">เพิ่ม แก้ไข และกำหนดสิทธิ์ผู้ใช้งานในระบบ</p>
+                        </div>
+                        <button onclick="showCreateUserModal()" class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition shadow-sm">
+                            <i class="bi bi-person-plus-fill"></i> เพิ่มผู้ใช้ใหม่
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+                    <div class="p-4 border-b border-gray-100 flex items-center justify-between">
+                        <h3 class="font-semibold text-gray-700 text-sm">รายชื่อผู้ใช้งานทั้งหมด</h3>
+                        <button onclick="loadAdminUserList()" class="text-xs text-teal-600 hover:underline flex items-center gap-1">
+                            <i class="bi bi-arrow-clockwise"></i> รีเฟรช
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left">
+                            <thead class="text-xs text-gray-500 uppercase bg-gray-50 border-b border-gray-100">
+                                <tr>
+                                    <th class="p-4">ชื่อผู้ใช้</th>
+                                    <th class="p-4">ชื่อ-สกุล</th>
+                                    <th class="p-4 text-center">สิทธิ์</th>
+                                    <th class="p-4 text-center">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-user-table-body" class="divide-y divide-gray-100">
+                                <tr><td colspan="4" class="p-8 text-center text-gray-400"><i class="bi bi-hourglass-split mr-2"></i>กำลังโหลด...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
             </div>
 
@@ -1215,9 +1281,25 @@
 
             </a>
 
+            <!-- Admin Mobile Nav -->
+            <div id="mobile-admin-section" style="display:none;">
+                <div class="border-t border-amber-100 mt-2 pt-2">
+                    <p class="px-3 text-[10px] font-semibold text-amber-500 uppercase tracking-wider mb-1">Admin</p>
+                    <a href="#" onclick="showAdminView()" class="nav-link-mobile flex items-center p-3 rounded-lg text-amber-700 hover:bg-amber-50">
+                        <i class="bi bi-shield-lock-fill mr-3"></i> จัดการผู้ใช้งาน
+                    </a>
+                </div>
+            </div>
+
         </div>
 
-        <div class="p-4 border-t border-gray-100">
+        <div class="p-4 border-t border-gray-100 space-y-1">
+
+            <button onclick="showChangePasswordModal()" class="w-full flex items-center p-3 text-teal-600 font-medium text-sm rounded-lg hover:bg-teal-50">
+
+                <i class="bi bi-key-fill mr-3"></i> เปลี่ยนรหัสผ่าน
+
+            </button>
 
             <button onclick="logout()" class="w-full flex items-center p-3 text-red-500 font-bold">
 
