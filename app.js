@@ -4513,17 +4513,22 @@ async function loadAdminUserList() {
             const roleBadge = isAdmin
                 ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#b45309;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700"><i class="bi bi-shield-fill"></i> Admin</span>'
                 : '<span style="display:inline-flex;align-items:center;gap:4px;background:#dbeafe;color:#1d4ed8;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:700"><i class="bi bi-person-fill"></i> User</span>';
+            const licenseBadge = u.License
+                ? `<span style="display:inline-flex;align-items:center;background:#f0fdfa;color:#0f766e;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:600;font-family:monospace;border:1px solid #ccfbf1">${u.License}</span>`
+                : '<span style="color:#9ca3af;font-size:12px">-</span>';
             const toggleBtn = isSelf ? '' : `<button onclick="adminToggleRole('${u.Username}','${isAdmin ? 'user' : 'admin'}')" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid ${isAdmin ? '#fcd34d' : '#93c5fd'};color:${isAdmin ? '#b45309' : '#1d4ed8'};cursor:pointer;background:#fff" title="${isAdmin ? 'ถอดสิทธิ์ผู้ดูแลระบบ' : 'แต่งตั้งเป็นผู้ดูแลระบบ'}">${isAdmin ? '<i class="bi bi-person-dash-fill"></i> ถอด Admin' : '<i class="bi bi-person-badge-fill"></i> แต่งตั้ง Admin'}</button>`;
+            const editBtn   = `<button onclick="showEditUserModal('${u.Username}','${(u.FullName||'').replace(/'/g,"\\'")}','${(u.Email||'').replace(/'/g,"\\'")}','${(u.License||'').replace(/'/g,"\\'")}','${u.Role}')" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid #93c5fd;color:#1d4ed8;cursor:pointer;background:#fff;margin-left:4px" title="แก้ไขข้อมูลผู้ใช้"><i class="bi bi-pencil"></i> แก้ไขข้อมูล</button>`;
             const resetBtn  = `<button onclick="adminResetPassword('${u.Username}')" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid #d1d5db;color:#374151;cursor:pointer;background:#fff;margin-left:4px" title="ตั้งรหัสผ่านใหม่"><i class="bi bi-key"></i> แก้ไขรหัสผ่าน</button>`;
             return `<tr style="border-bottom:1px solid #f3f4f6">
                 <td style="padding:12px 16px;font-weight:600;color:#1f2937">${u.Username}${isSelf ? ' <span style="color:#0d9488;font-size:11px;font-weight:400">(คุณ)</span>' : ''}</td>
                 <td style="padding:12px 16px;color:#4b5563">${u.FullName || '-'}</td>
+                <td style="padding:12px 16px;text-align:center">${licenseBadge}</td>
                 <td style="padding:12px 16px;text-align:center">${roleBadge}</td>
-                <td style="padding:12px 16px;text-align:center">${toggleBtn}${resetBtn}</td>
+                <td style="padding:12px 16px;text-align:center">${toggleBtn}${editBtn}${resetBtn}</td>
             </tr>`;
         }).join('');
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-red-500">${err.message || 'เกิดข้อผิดพลาด'}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-red-500">${err.message || 'เกิดข้อผิดพลาด'}</td></tr>`;
     }
 }
 
@@ -4539,6 +4544,10 @@ function showCreateUserModal() {
                 <div style="margin-bottom:10px">
                     <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;color:#374151">ชื่อ-สกุล *</label>
                     <input id="new-user-fullname" type="text" class="swal2-input" style="margin:0;width:100%" placeholder="เช่น นางสาวสมใจ ใจดี" autocomplete="off">
+                </div>
+                <div style="margin-bottom:10px">
+                    <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;color:#374151">เลขใบประกอบวิชาชีพ (ถ้ามี)</label>
+                    <input id="new-user-license" type="text" class="swal2-input" style="margin:0;width:100%" placeholder="เช่น ก.10811, ก.12647" autocomplete="off">
                 </div>
                 <div style="margin-bottom:10px">
                     <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;color:#374151">รหัสผ่านเริ่มต้น *</label>
@@ -4563,12 +4572,13 @@ function showCreateUserModal() {
         preConfirm: async () => {
             const username = document.getElementById('new-user-username').value.trim();
             const fullName = document.getElementById('new-user-fullname').value.trim();
+            const license  = document.getElementById('new-user-license').value.trim();
             const password = document.getElementById('new-user-password').value.trim();
             const role     = document.getElementById('new-user-role').value;
             if (!username || !fullName || !password) { Swal.showValidationMessage('กรุณากรอกข้อมูลให้ครบทุกช่องที่มี *'); return false; }
             if (password.length < 6) { Swal.showValidationMessage('รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร'); return false; }
             try {
-                const res = await google.script.run.adminCreateUser({ username, fullName, password, role });
+                const res = await google.script.run.adminCreateUser({ username, fullName, license, password, role });
                 if (res && res.status === 'error') { Swal.showValidationMessage(res.message || 'สร้างผู้ใช้ไม่สำเร็จ'); return false; }
                 return res;
             } catch (err) { Swal.showValidationMessage('เกิดข้อผิดพลาด: ' + (err.message || err)); return false; }
@@ -4577,6 +4587,59 @@ function showCreateUserModal() {
     }).then(result => {
         if (result.isConfirmed) {
             Swal.fire({ icon: 'success', title: 'สร้างบัญชีสำเร็จ', timer: 2500, showConfirmButton: false });
+            loadAdminUserList();
+        }
+    });
+}
+
+function showEditUserModal(username, currentFullName, currentEmail, currentLicense, currentRole) {
+    Swal.fire({
+        title: `แก้ไขข้อมูล: ${username}`,
+        html: `
+            <div class="text-left" style="margin-top:10px">
+                <div style="margin-bottom:10px">
+                    <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;color:#374151">ชื่อ-สกุล *</label>
+                    <input id="edit-user-fullname" type="text" class="swal2-input" style="margin:0;width:100%" value="${currentFullName || ''}">
+                </div>
+                <div style="margin-bottom:10px">
+                    <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;color:#374151">เลขใบประกอบวิชาชีพ</label>
+                    <input id="edit-user-license" type="text" class="swal2-input" style="margin:0;width:100%" placeholder="เช่น ก.10811" value="${currentLicense || ''}">
+                </div>
+                <div style="margin-bottom:10px">
+                    <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;color:#374151">อีเมล</label>
+                    <input id="edit-user-email" type="email" class="swal2-input" style="margin:0;width:100%" value="${currentEmail || ''}">
+                </div>
+                <div>
+                    <label style="display:block;font-size:13px;font-weight:600;margin-bottom:4px;color:#374151">สิทธิ์</label>
+                    <select id="edit-user-role" class="swal2-input" style="margin:0;width:100%;height:auto;padding:8px 12px">
+                        <option value="user" ${currentRole !== 'admin' ? 'selected' : ''}>User (ผู้ใช้งานทั่วไป)</option>
+                        <option value="admin" ${currentRole === 'admin' ? 'selected' : ''}>Admin (ผู้ดูแลระบบ)</option>
+                    </select>
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'บันทึกการแก้ไข',
+        cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#0d9488',
+        cancelButtonColor: '#6b7280',
+        showLoaderOnConfirm: true,
+        preConfirm: async () => {
+            const fullName = document.getElementById('edit-user-fullname').value.trim();
+            const license  = document.getElementById('edit-user-license').value.trim();
+            const email    = document.getElementById('edit-user-email').value.trim();
+            const role     = document.getElementById('edit-user-role').value;
+            if (!fullName) { Swal.showValidationMessage('กรุณากรอกชื่อ-สกุล'); return false; }
+            try {
+                const res = await google.script.run.adminUpdateUser({ username, fullName, email, license, role });
+                if (res && res.status === 'error') { Swal.showValidationMessage(res.message || 'บันทึกไม่สำเร็จ'); return false; }
+                return res;
+            } catch (err) { Swal.showValidationMessage('เกิดข้อผิดพลาด: ' + (err.message || err)); return false; }
+        },
+        allowOutsideClick: () => !Swal.isLoading()
+    }).then(result => {
+        if (result.isConfirmed) {
+            Swal.fire({ icon: 'success', title: 'บันทึกข้อมูลเรียบร้อย', timer: 2000, showConfirmButton: false });
             loadAdminUserList();
         }
     });

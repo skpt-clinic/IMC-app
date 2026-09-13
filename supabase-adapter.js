@@ -216,7 +216,22 @@
         }
 
         const dropdowns = dropRes.data || [];
-        const therapistList = dropdowns.map(r => r.Therapists).filter(Boolean);
+        const baseTherapists = dropdowns.map(r => r.Therapists).filter(Boolean);
+        let therapistList = [...baseTherapists];
+        try {
+          const { data: uList } = await client.from('Users').select('"FullName", "License"');
+          if (uList && Array.isArray(uList)) {
+            uList.forEach(u => {
+              if (u.FullName) {
+                const cleanName = u.FullName.trim();
+                const prefixed = cleanName.startsWith('กภ.') ? cleanName : `กภ.${cleanName}`;
+                if (!therapistList.includes(prefixed) && !therapistList.includes(cleanName)) {
+                  therapistList.push(prefixed);
+                }
+              }
+            });
+          }
+        } catch (_) {}
         const zoneList = dropdowns.map(r => r.Zone).filter(Boolean);
 
         // Next CN calculation
@@ -405,7 +420,7 @@
         // 2. Direct query fallback
         const { data: users, error } = await client
           .from('Users')
-          .select('"UserID", "FullName", "Email", "Username", "CreatedAt"')
+          .select('"UserID", "FullName", "Email", "Username", "License", "CreatedAt"')
           .order('UserID', { ascending: true });
         if (error) throw error;
 
@@ -433,7 +448,7 @@
 
     async adminCreateUser(userInfo) {
       try {
-        const { fullName, email, username, password, role } = userInfo;
+        const { fullName, email, username, password, role, license } = userInfo;
         if (!fullName || !username || !password) {
           return { status: 'error', message: 'กรุณากรอกข้อมูลให้ครบทุกช่อง' };
         }
@@ -449,6 +464,15 @@
           return { status: 'error', message: res?.message || rpcError?.message || 'ไม่สามารถเพิ่มผู้ใช้ได้' };
         }
 
+        // Save License if provided
+        if (license) {
+          try {
+            await client.from('Users').update({ License: license.trim() }).eq('Username', username.trim());
+          } catch (licErr) {
+            console.warn('Save license error:', licErr);
+          }
+        }
+
         if (role === 'admin') {
           const { data: setRow } = await client.from('Settings').select('Value').eq('Settings', 'AdminUsers').maybeSingle();
           const currentAdmins = setRow && setRow.Value ? setRow.Value.split(',').map(s => s.trim()) : ['nat-admin'];
@@ -459,6 +483,48 @@
         }
 
         return { status: 'success', message: 'เพิ่มผู้ใช้งานสำเร็จ' };
+      } catch (e) {
+        return { status: 'error', message: e.message };
+      }
+    },
+
+    async adminUpdateUser(userInfo) {
+      try {
+        const { username, fullName, email, license, role } = userInfo;
+        if (!username || !fullName) {
+          return { status: 'error', message: 'กรุณาระบุชื่อผู้ใช้และชื่อ-สกุล' };
+        }
+        // Try RPC first
+        let rpcDone = false;
+        try {
+          const { data: rpcRes, error: rpcErr } = await client.rpc('rpc_admin_update_user', {
+            p_username: username.trim(),
+            p_fullname: fullName.trim(),
+            p_email: email ? email.trim() : '',
+            p_license: license ? license.trim() : ''
+          });
+          if (!rpcErr && rpcRes && rpcRes.status === 'success') {
+            rpcDone = true;
+          }
+        } catch (_) {}
+
+        // Fallback: direct update
+        if (!rpcDone) {
+          const updateObj = {
+            FullName: fullName.trim()
+          };
+          if (email) updateObj.Email = email.trim();
+          if (license !== undefined) updateObj.License = license ? license.trim() : null;
+          const { error: updErr } = await client.from('Users').update(updateObj).eq('Username', username.trim());
+          if (updErr) throw updErr;
+        }
+
+        // Update role if changed
+        if (role) {
+          await backend.adminToggleRole(username, role);
+        }
+
+        return { status: 'success', message: 'อัปเดตข้อมูลผู้ใช้งานเรียบร้อยแล้ว' };
       } catch (e) {
         return { status: 'error', message: e.message };
       }
