@@ -1,137 +1,55 @@
 <div id="summary-view" class="space-y-6" style="display: none;">
-
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-wrap items-end gap-4 justify-between">
-
-                    <div>
-
-                        <h3 class="text-lg font-bold text-teal-800 mb-1">ติดตามสถานะและผลการรักษาตามช่วงวันที่กำหนด</h3>
-
-                        
-
-                    </div>
-
-                    <div class="flex gap-2 items-end">
-
-                        <div>
-
-                            <label class="text-xs font-medium text-gray-500 block mb-1">ตั้งแต่วันที่</label>
-
-                            <input type="date" id="summary-start-date" class="rounded-lg border-gray-300 focus:ring-teal-500 focus:border-teal-500 text-sm">
-
-                        </div>
-
-                        <div>
-
-                            <label class="text-xs font-medium text-gray-500 block mb-1">ถึงวันที่</label>
-
-                            <input type="date" id="summary-end-date" class="rounded-lg border-gray-300 focus:ring-teal-500 focus:border-teal-500 text-sm">
-
-                        </div>
-
-                        <button onclick="filterSummary()" class="bg-teal-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-teal-700 h-[38px] transition shadow-sm flex items-center">
-
-                            <i class="bi bi-search mr-2"></i> ค้นหา
-
-                        </button>
-
-                    </div>
-
-                </div>
-
-
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex flex-col h-full">
-
-                        <div class="p-4 bg-green-50/50 border-b border-green-100 flex justify-between items-center">
-
-                            <h4 class="font-bold text-green-800 flex items-center text-sm"><i class="bi bi-check-circle-fill mr-2"></i>เยี่ยมแล้ว</h4>
-
-                            <span id="summary-completed-count" class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">0</span>
-
-                        </div>
-
-                        <div class="overflow-x-auto flex-grow">
-
-                             <table class="w-full text-sm text-left">
-
-                                <thead class="text-xs text-gray-500 uppercase bg-gray-50 border-b border-gray-100">
-
-                                    <tr>
-
-                                        <th class="p-3">ผู้ป่วย</th>
-
-                                        <th class="p-3">Zone</th>
-
-                                        <th class="p-3">Multiple Impairment</th>
-
-                                        <th class="p-3 text-center">BI (ก่อน/หลัง)</th>
-
-                                        <th class="p-3 text-center">สถานะ</th>
-
-                                        <th class="p-3 text-center">Budget</th>
-
-                                    </tr>
-
-                                </thead>
-
-                                <tbody id="summary-completed-table-body" class="divide-y divide-gray-100"></tbody>
-
-                            </table>
-
-                        </div>
-
-                    </div>
-
-                    
-
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden flex flex-col h-full">
-
-                        <div class="p-4 bg-yellow-50/50 border-b border-yellow-100 flex justify-between items-center">
-
-                            <h4 class="font-bold text-yellow-800 flex items-center text-sm"><i class="bi bi-clock-fill mr-2"></i>รอเยี่ยม</h4>
-
-                            <span id="summary-pending-count" class="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-xs font-bold">0</span>
-
-                        </div>
-
-                         <div class="overflow-x-auto flex-grow">
-
-                             <table class="w-full text-sm text-left">
-
-                                <thead class="text-xs text-gray-500 uppercase bg-gray-50 border-b border-gray-100">
-
-                                    <tr>
-
-                                        <th class="p-3">ผู้ป่วย</th>
-
-                                        <th class="p-3">Zone</th>
-
-                                        <th class="p-3">Multiple Impairment</th>
-
-                                        <th class="p-3 text-center">BI (ล่าสุด)</th>
-
-                                        <th class="p-3 text-center">สถานะ</th>
-
-                                    </tr>
-
-                                </thead>
-
-                                <tbody id="summary-pending-table-body" class="divide-y divide-gray-100"></tbody>
-
-                            </table>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 flex flex-wrap items-end gap-4 justify-between">
+        <div>
+            <h3 class="text-lg font-bold text-teal-800 mb-1">ติดตามสถานะและผลการรักษาตามช่วงวันที่กำหนด</h3>
+            <p class="text-xs text-gray-500">แสดงรายการเยี่ยมแล้ว พร้อมผู้เยี่ยม Budget และทางเข้า EMR</p>
+        </div>
+        <div class="flex gap-2 items-end">
+            <div>
+                <label class="text-xs font-medium text-gray-500 block mb-1">ตั้งแต่วันที่</label>
+                <input type="date" id="summary-start-date" class="rounded-lg border-gray-300 focus:ring-teal-500 focus:border-teal-500 text-sm">
             </div>
+            <div>
+                <label class="text-xs font-medium text-gray-500 block mb-1">ถึงวันที่</label>
+                <input type="date" id="summary-end-date" class="rounded-lg border-gray-300 focus:ring-teal-500 focus:border-teal-500 text-sm">
+            </div>
+            <button onclick="filterSummary()" class="bg-teal-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-teal-700 h-[38px] transition shadow-sm flex items-center">
+                <i class="bi bi-search mr-2"></i> ค้นหา
+            </button>
+        </div>
+    </div>
 
+    <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+        <div class="p-4 bg-green-50/50 border-b border-green-100 flex justify-between items-center">
+            <h4 class="font-bold text-green-800 flex items-center text-sm">
+                <i class="bi bi-check-circle-fill mr-2"></i>เยี่ยมแล้ว
+            </h4>
+            <span id="summary-completed-count" class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">0</span>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+                <thead class="text-xs text-gray-500 uppercase bg-gray-50 border-b border-gray-100">
+                    <tr>
+                        <th class="p-3 whitespace-nowrap">ผู้ป่วย</th>
+                        <th class="p-3 whitespace-nowrap">Zone</th>
+                        <th class="p-3">Multiple Impairment</th>
+                        <th class="p-3 text-center whitespace-nowrap">BI (ก่อน/หลัง)</th>
+                        <th class="p-3 text-center whitespace-nowrap">สถานะ</th>
+                        <th class="p-3 text-center whitespace-nowrap">ผู้เยี่ยม</th>
+                        <th class="p-3 text-center whitespace-nowrap">Budget</th>
+                        <th class="p-3 text-center whitespace-nowrap">EMR</th>
+                    </tr>
+                </thead>
+                <tbody id="summary-completed-table-body" class="divide-y divide-gray-100"></tbody>
+            </table>
+        </div>
+    </div>
 
+    <!-- Kept for compatibility with existing code; the pending table is intentionally removed from the UI. -->
+    <span id="summary-pending-count" class="hidden">0</span>
+    <span id="summary-pending-table-body" class="hidden"></span>
+</div>
 
-            <!-- =============================================================== -->
-            <!-- ADMIN VIEW -->
-            <!-- =============================================================== -->
+<!-- =============================================================== -->
+<!-- ADMIN VIEW -->
+<!-- =============================================================== -->
