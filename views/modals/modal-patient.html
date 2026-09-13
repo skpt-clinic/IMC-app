@@ -1,0 +1,187 @@
+<div class="modal fade" id="patientModal" tabindex="-1">
+
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+
+            <div class="modal-content rounded-xl border-0 shadow-lg">
+
+                <div class="modal-header bg-teal-600 text-white rounded-t-xl">
+
+                    <h5 class="modal-title font-bold text-lg" id="patientModalLabel"></h5>
+
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+
+                </div>
+
+                <div class="modal-body bg-gray-50 p-6">
+
+                    <form id="patient-form" class="space-y-6">
+
+                        <input type="hidden" id="PatientID" name="PatientID">
+
+                        <input type="hidden" id="photoData" name="photoData">
+
+                        <input type="hidden" id="PatientPhotoURL" name="PatientPhotoURL">
+
+                        
+
+                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+
+                             <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+
+                                <div class="col-span-1 text-center">
+
+                                    <img id="photoPreview" class="w-40 h-52 object-cover rounded-lg shadow-sm mb-3 mx-auto border" src="https://placehold.co/200x250/E2E8F0/A0AEC0?text=รูปภาพ">
+
+                                    <input type="file" id="photoUpload" onchange="handlePhotoUpload(event)" accept="image/*" class="text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 w-full">
+
+                                </div>
+
+                                <div class="col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4 content-start">
+
+                                    <div><label class="label">CN</label><input type="text" id="ClinicNumber" name="ClinicNumber" class="input"></div>
+
+                                    <div><label class="label">เลข ปชช.</label><input type="text" id="NationalID" name="NationalID" class="input"></div>
+
+                                    <div class="md:col-span-2"><label class="label required">ชื่อ-สกุล</label><input type="text" id="PatientName" name="PatientName" class="input" required></div>
+
+                                    <div><label class="label">เพศ</label><select id="Gender" name="Gender" class="input"><option value="">เลือก...</option><option>ชาย</option><option>หญิง</option></select></div>
+
+                                    <div>
+
+                                        <label class="label">วันเกิด</label>
+
+                                        <div class="flex gap-2">
+
+                                            <input type="date" id="DateOfBirth" name="DateOfBirth" onchange="document.getElementById('calculatedAge').textContent = calculateAge(this.value)" class="input w-2/3">
+
+                                            <div id="calculatedAge" class="input w-1/3 bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-600"></div>
+
+                                        </div>
+
+                                    </div>
+
+                                    <div><label class="label">สถานภาพ</label><select id="MaritalStatus" name="MaritalStatus" class="input"><option value="">เลือก...</option><option>โสด</option><option>สมรส</option><option>หย่าร้าง</option><option>หม้าย</option></select></div>
+
+                                    <div>
+
+                                        <label class="label">สิทธิ์การรักษา</label>
+
+                                        <select id="TreatmentRights" name="TreatmentRights" class="input" onchange="toggleTreatmentRightsOther()"><option value="">เลือก...</option><option>หลักประกันสุขภาพแห่งชาติ (บัตรทอง)</option><option>ประกันสังคม</option><option>สวัสดิการรักษาพยาบาลข้าราชการ</option><option>อื่นๆ</option></select>
+
+                                        <div id="treatment-rights-other-container" style="display:none;" class="mt-2">
+
+                                            <input type="text" id="TreatmentRightsOther" name="TreatmentRightsOther" class="input" placeholder="ระบุสิทธิ์การรักษา">
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                             </div>
+
+                        </div>
+
+
+
+                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+
+                            <h4 class="font-bold text-gray-700 mb-3 border-b pb-1">ที่อยู่ปัจจุบัน</h4>
+
+                            <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
+
+                                <div class="col-span-1"><label class="label">บ้านเลขที่</label><input type="text" id="HouseNumber" name="HouseNumber" class="input"></div>
+
+                                <div class="col-span-1"><label class="label">หมู่ที่</label><input type="text" id="Moo" name="Moo" class="input"></div>
+
+                                <div class="col-span-2 md:col-span-2"><label class="label">จังหวัด</label><select id="Province" name="Province" class="input w-full"></select></div>
+
+                                <div class="col-span-2 md:col-span-2"><label class="label">อำเภอ</label><select id="Amphoe" name="Amphoe" class="input w-full"></select></div>
+
+                                <div class="col-span-2 md:col-span-2"><label class="label">ตำบล</label><select id="Tambon" name="Tambon" class="input w-full"></select></div>
+
+                                <div class="col-span-2 md:col-span-2"><label class="label">รหัสไปรษณีย์</label><input type="text" id="PostalCode" name="PostalCode" class="input bg-gray-100" readonly></div>
+
+                            </div>
+
+                        </div>
+
+
+
+                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+
+                             <h4 class="font-bold text-gray-700 mb-3 border-b pb-1">ข้อมูลทางการแพทย์</h4>
+
+                             <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+
+                                 <div><label class="label">น้ำหนัก (กก.)</label><input type="number" id="Weight" name="Weight" class="input"></div>
+
+                                 <div><label class="label">ส่วนสูง (ซม.)</label><input type="number" id="Height" name="Height" class="input"></div>
+
+                                 <div class="col-span-2"><label class="label">IMC Dx.</label><select id="IMCDx" name="IMCDx" class="input" onchange="toggleStrokeType()"><option value="">เลือก...</option><option>Stroke</option><option>Fx.HIP</option><option>SCI</option><option>TBI</option></select></div>
+
+                                 <div id="stroke-type-container" style="display:none;" class="col-span-2"><label class="label">ชนิด Stroke</label><select id="StrokeType" name="StrokeType" class="input"><option value="">เลือก...</option><option>Hemorrhage</option><option>Ischemic</option></select></div>
+
+                                 <div class="col-span-2"><label class="label">ICD 10</label><input type="text" id="ICD10" name="ICD10" class="input"></div>
+
+                                 <div class="col-span-2"><label class="label">BI แรกรับ</label><input type="number" id="InitialBI" name="InitialBI" class="input"></div>
+
+                                 <div class="col-span-2"><label class="label">Admit Date</label><input type="date" id="AdmitDate" name="AdmitDate" class="input"></div>
+
+                                 <div class="col-span-2"><label class="label">Discharge Date</label><input type="date" id="DischargeDate" name="DischargeDate" class="input"></div>
+
+                                 <div class="col-span-2"><label class="label text-red-500">วันครบกำหนด</label><input type="date" id="DueDate" name="DueDate" class="input border-red-200"></div>
+
+                             </div>
+
+                             <div class="mt-3">
+
+                                <label class="label">แพ้ยา/ข้อควรระวัง</label>
+
+                                <div id="allergies-container" class="mt-1 p-2 border rounded-md bg-red-50"></div>
+
+                            </div>
+
+                        </div>
+
+
+
+                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+
+                             <h4 class="font-bold text-gray-700 mb-3 border-b pb-1">ผู้ดูแลและการติดต่อ</h4>
+
+                             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+                                 <div><label class="label">ชื่อผู้ดูแลหลัก</label><input type="text" id="CaregiverName" name="CaregiverName" class="input"></div>
+
+                                 <div><label class="label">ความเกี่ยวข้อง</label><select id="CaregiverRelationship" name="CaregiverRelationship" class="input"></select></div>
+
+                                 <div><label class="label">เบอร์โทรศัพท์</label><input type="text" id="Phone" name="Phone" class="input"></div>
+
+                                 <div><label class="label">Zone</label><select id="Zone" name="Zone" class="input"></select></div>
+
+                                 <div class="md:col-span-2"><label class="label">นักกายภาพผู้ดูแล</label><select id="AssignedPT" name="AssignedPT" class="input"></select></div>
+
+                             </div>
+
+                        </div>
+
+
+
+                    </form>
+
+                </div>
+
+                <div class="modal-footer bg-gray-50 border-t-0 rounded-b-xl">
+
+                    <button type="button" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium" data-bs-dismiss="modal">ยกเลิก</button>
+
+                    <button type="button" onclick="handleFormSubmit()" class="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium shadow-md">บันทึกข้อมูล</button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>

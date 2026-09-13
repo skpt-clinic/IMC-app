@@ -1,0 +1,123 @@
+<div id="service-view" class="fade-in space-y-6" style="display: none;">
+
+                <div id="service-search-panel" class="max-w-2xl mx-auto mt-10">
+
+                    <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 text-center">
+
+                        <div class="h-16 w-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4 text-teal-600 text-2xl">
+
+                            <i class="bi bi-search"></i>
+
+                        </div>
+
+                        <h3 class="text-xl font-bold text-gray-800 mb-2">ค้นหาผู้ป่วยเพื่อเข้ารับบริการ</h3>
+
+                        <p class="text-gray-500 mb-6">กรอกชื่อ, รหัส CN หรือเลขบัตรประชาชน</p>
+
+                        
+
+                        <div class="relative">
+
+                            <input type="text" id="serviceSearchInput" onkeyup="searchServicePatient(event)" class="w-full pl-5 pr-12 py-3 rounded-xl border-gray-300 focus:ring-teal-500 focus:border-teal-500 shadow-sm text-lg" placeholder="พิมพ์คำค้นหา...">
+
+                            <button onclick="searchServicePatient(null, true)" class="absolute right-2 top-2 bg-teal-600 text-white p-2 rounded-lg hover:bg-teal-700 transition">
+
+                                <i class="bi bi-arrow-right"></i>
+
+                            </button>
+
+                        </div>
+
+                        <div id="service-search-results" class="mt-4 text-left max-h-60 overflow-y-auto hidden"></div>
+
+                    </div>
+
+                </div>
+
+
+
+                <div id="patient-service-dashboard" style="display: none;">
+
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 mb-6">
+
+                        <div class="flex flex-col md:flex-row items-start md:items-center gap-6">
+
+                            <div class="flex-shrink-0">
+
+                                <img id="service-patient-photo" src="" class="w-20 h-20 rounded-full object-cover border-4 border-teal-50 shadow-sm">
+
+                            </div>
+
+                            <div class="flex-grow w-full">
+
+                                <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-2">
+
+                                    <div>
+
+                                        <h3 id="service-patient-name" class="text-2xl font-bold text-gray-800 mb-1"></h3>
+
+                                        <div class="text-sm text-gray-500 flex items-center gap-3">
+
+                                            <span id="service-patient-info"></span>
+
+                                            <span class="text-gray-300">|</span>
+
+                                            <span id="service-patient-zone-display" class="font-medium text-teal-600"></span>
+
+                                        </div>
+
+                                    </div>
+
+                                    <div class="mt-2 md:mt-0 text-right bg-gray-50 px-4 py-2 rounded-lg border border-gray-100">
+
+                                        <span class="text-xs font-semibold text-gray-400 uppercase block mb-1">สถานะการเยี่ยม</span>
+
+                                        <div id="service-visit-status" class="text-xl font-bold text-teal-600"></div>
+
+                                    </div>
+
+                                </div>
+
+                                <div class="flex flex-wrap gap-2 mb-3">
+
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100">
+
+                                        <i class="bi bi-person-vcard-fill mr-1.5"></i> CID: <span id="service-patient-cid">-</span>
+
+                                    </span>
+
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+
+                                        <i class="bi bi-telephone-fill mr-1.5"></i> โทร: <span id="service-patient-phone">-</span>
+
+                                    </span>
+
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-orange-50 text-orange-700 border border-orange-100">
+
+                                        <i class="bi bi-calendar-check-fill mr-1.5"></i> ครบกำหนด: <span id="service-patient-dayend">-</span>
+
+                                    </span>
+
+                                </div>
+
+                                <div class="text-sm text-gray-500 flex items-start">
+
+                                    <i class="bi bi-geo-alt-fill text-red-400 mr-2 mt-0.5"></i>
+
+                                    <span id="service-patient-address">-</span>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <div id="service-menu-bar" class="flex flex-wrap gap-3 mb-6"></div>
+
+                    <div id="service-form-area" class="bg-white p-6 rounded-xl shadow-sm border border-slate-100 min-h-[400px]" style="display: none;"></div>
+
+                </div>
+
+            </div>

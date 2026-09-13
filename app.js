@@ -80,16 +80,25 @@ function openMainAppForUser(user, persistSession = true) {
 // =================================================================
 // 2. INITIALIZATION
 // =================================================================
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    // Load modular views and modals if loader exists
+    if (typeof window.loadAllPartials === 'function') {
+        await window.loadAllPartials();
+    }
+
     if (typeof SERVER_VIEW_MODE !== 'undefined' && SERVER_VIEW_MODE === 'reset' && SERVER_RESET_TOKEN) {
         // ซ่อนหน้า Login ปกติ
         document.getElementById('auth-container').style.display = 'none';
         // เรียก Modal ตั้งค่ารหัสผ่านใหม่ทันที
         showNewPasswordModal(SERVER_RESET_TOKEN);
     }
-    patientModal = new bootstrap.Modal(document.getElementById('patientModal'));
-    scheduleModal = new bootstrap.Modal(document.getElementById('scheduleModal'));
-    downloadModal = new bootstrap.Modal(document.getElementById('downloadModal')); 
+    const pModalEl = document.getElementById('patientModal');
+    if (pModalEl) patientModal = new bootstrap.Modal(pModalEl);
+    const sModalEl = document.getElementById('scheduleModal');
+    if (sModalEl) scheduleModal = new bootstrap.Modal(sModalEl);
+    const dModalEl = document.getElementById('downloadModal');
+    if (dModalEl) downloadModal = new bootstrap.Modal(dModalEl);
+
     // Event Listeners for Auth Forms
     document.getElementById('login-form')?.addEventListener('submit', handleLoginSubmit);
     document.getElementById('register-form')?.addEventListener('submit', handleRegistrationSubmit);

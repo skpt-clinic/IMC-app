@@ -1,0 +1,39 @@
+<div class="modal fade" id="downloadModal" tabindex="-1">
+
+        <div class="modal-dialog modal-dialog-centered">
+
+            <div class="modal-content rounded-xl shadow-lg border-0">
+
+                <div class="modal-header bg-gray-800 text-white">
+
+                    <h5 class="modal-title font-bold"><i class="bi bi-cloud-download mr-2"></i>ดาวน์โหลดเอกสาร</h5>
+
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+
+                </div>
+
+                <div class="modal-body p-0">
+
+                    <div class="p-4 bg-gray-50 border-b">
+
+                        <p class="text-sm text-gray-500">เอกสารของ: <span id="downloadPatientName" class="font-bold text-gray-800 text-base"></span></p>
+
+                    </div>
+
+                    <div id="download-list-container" class="p-4" style="max-height: 400px; overflow-y: auto;"></div>
+
+                </div>
+
+                <div class="modal-footer bg-white">
+
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">ปิด</button>
+
+                    <button type="button" onclick="handleDownloadSelected()" class="btn btn-primary btn-sm"><i class="bi bi-download mr-1"></i> ดาวน์โหลดที่เลือก</button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>

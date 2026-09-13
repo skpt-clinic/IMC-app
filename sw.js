@@ -1,13 +1,24 @@
-const CACHE_NAME = 'skpt-imc-plus-v3';
+const CACHE_NAME = 'skpt-imc-plus-v4';
 const APP_SHELL = [
   './',
   './index.html',
   './styles.css',
+  './view-loader.js',
   './supabase-adapter.js',
   './app.js',
   './pwa.js',
   './manifest.webmanifest',
   './icon.jpg',
+  './views/view-dashboard.html',
+  './views/view-patient-list.html',
+  './views/view-patient-detail.html',
+  './views/view-service.html',
+  './views/view-schedule.html',
+  './views/view-summary.html',
+  './views/view-admin.html',
+  './views/modals/modal-patient.html',
+  './views/modals/modal-schedule.html',
+  './views/modals/modal-download.html',
 ];
 
 self.addEventListener('install', (event) => {

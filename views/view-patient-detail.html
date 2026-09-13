@@ -1,0 +1,73 @@
+<div id="patient-detail-view" class="fade-in space-y-4" style="display: none;">
+
+                <div class="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+
+                    <button onclick="goBackToList()" class="flex items-center text-gray-500 hover:text-teal-600 transition font-medium">
+
+                        <i class="bi bi-arrow-left mr-2"></i> กลับ
+
+                    </button>
+
+                    <div class="flex gap-2">
+
+                        <button id="detail-edit-button" class="btn btn-warning btn-sm text-white"><i class="bi bi-pencil-square mr-1"></i>แก้ไข</button>
+
+                        <button onclick="printRecord('IMCCover', currentPatient.PatientID)" class="btn btn-info btn-sm text-white"><i class="bi bi-printer mr-1"></i>ปก</button>
+
+                        <button id="detail-delete-button" class="btn btn-danger btn-sm"><i class="bi bi-trash mr-1"></i>ลบ</button>
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                    <div class="lg:col-span-4 xl:col-span-3">
+
+                         <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-6 flex flex-col items-center text-center">
+
+                            <div class="relative mb-4">
+
+                                <img id="detail-photo" src="" class="w-32 h-32 rounded-full object-cover border-4 border-teal-50 shadow-sm">
+
+                                <span class="absolute bottom-0 right-0 h-6 w-6 bg-green-400 border-2 border-white rounded-full"></span>
+
+                            </div>
+
+                            <div id="patient-info-grid" class="w-full text-left space-y-3 mt-2"></div>
+
+                         </div>
+
+                    </div>
+
+
+
+                    <div class="lg:col-span-8 xl:col-span-9">
+
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden min-h-[500px]">
+
+                            <div class="border-b border-gray-200">
+
+                                <nav class="flex -mb-px">
+
+                                    <button class="detail-tab-link active w-1/3 py-4 text-center font-medium text-sm border-b-2" onclick="switchDetailTab(event, 'info-tab')">ข้อมูลการรักษา</button>
+
+                                    <button class="detail-tab-link w-1/3 py-4 text-center font-medium text-sm border-b-2" onclick="switchDetailTab(event, 'schedule-tab')">ตารางนัดหมาย</button>
+
+                                    <button class="detail-tab-link w-1/3 py-4 text-center font-medium text-sm border-b-2" onclick="switchDetailTab(event, 'emr-tab')">เอกสาร EMR</button>
+
+                                </nav>
+
+                            </div>
+
+                            <div id="detail-tab-content" class="p-6"></div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>

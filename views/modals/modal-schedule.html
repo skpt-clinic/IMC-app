@@ -1,0 +1,43 @@
+<div class="modal fade" id="scheduleModal" tabindex="-1">
+
+        <div class="modal-dialog modal-lg">
+
+            <div class="modal-content rounded-xl border-0 shadow-lg">
+
+                <div class="modal-header bg-teal-600 text-white">
+
+                    <h5 class="modal-title font-bold">กำหนดวันนัดเยี่ยมบ้าน</h5>
+
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+
+                </div>
+
+                <div class="modal-body bg-gray-50 p-6">
+
+                    <input type="hidden" id="schedulePatientId">
+
+                    <div class="mb-6 p-4 bg-white rounded-lg shadow-sm border border-l-4 border-l-teal-500">
+
+                        <p class="text-gray-700">ผู้ป่วย: <span id="schedulePatientName" class="font-bold text-lg text-gray-900 ml-2"></span></p>
+
+                        <p class="text-gray-500 text-sm">วันครบกำหนด: <span id="scheduleDueDate" class="font-semibold text-red-500"></span></p>
+
+                    </div>
+
+                    <div class="row gy-3" id="schedule-date-inputs"></div>
+
+                </div>
+
+                <div class="modal-footer bg-white">
+
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">ยกเลิก</button>
+
+                    <button type="button" onclick="handleSaveSchedules()" class="btn btn-teal text-white bg-teal-600 hover:bg-teal-700">บันทึก</button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
