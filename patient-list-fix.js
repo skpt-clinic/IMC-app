@@ -62,8 +62,8 @@
       });
       planMap = latest;
 
-      if (Array.isArray(window.allPatients)) {
-        window.allPatients.forEach(patient => {
+      if (Array.isArray(allPatients)) {
+        allPatients.forEach(patient => {
           const pid = String(patient.PatientID || '').trim();
           patient.LatestPlan = latest[pid]?.Plan ?? '';
           patient.LatestPlanVisitDate = latest[pid]?.VisitDate ?? null;
@@ -76,30 +76,22 @@
   function addPlanColumn() {
     const thead = document.getElementById('patient-table-header');
     const tbody = document.getElementById('patient-table-body');
-    if (!thead || !tbody || typeof currentPatientTab !== 'undefined' && currentPatientTab !== 'Active') return;
+    if (!thead || !tbody || (typeof currentPatientTab !== 'undefined' && currentPatientTab !== 'Active')) return;
 
     const headers = Array.from(thead.querySelectorAll('th'));
-    if (!headers.length) return;
-    if (headers.some(th => th.textContent.trim() === 'Plan')) return;
+    if (!headers.length || headers.some(th => th.textContent.trim() === 'Plan')) return;
 
-    // Plan goes immediately after Next Appointment.
     const nextIndex = headers.findIndex(th => th.textContent.trim() === 'วันนัดถัดไป');
     const planTh = document.createElement('th');
     planTh.className = 'px-6 py-3 text-center whitespace-nowrap min-w-[220px]';
     planTh.textContent = 'Plan';
-    if (nextIndex >= 0 && headers[nextIndex].nextSibling) {
-      thead.insertBefore(planTh, headers[nextIndex].nextSibling);
-    } else {
-      thead.appendChild(planTh);
-    }
+    if (nextIndex >= 0 && headers[nextIndex].nextSibling) thead.insertBefore(planTh, headers[nextIndex].nextSibling);
+    else thead.appendChild(planTh);
 
     Array.from(tbody.querySelectorAll('tr')).forEach(row => {
       const cells = Array.from(row.children);
-      // Date/group/empty rows are handled by colspan and should not get a Plan cell.
       if (cells.length !== headers.length) return;
-      const patientCell = cells[1];
-      const name = patientCell?.textContent?.trim() || '';
-      if (!name) return;
+      if (!cells[1]?.textContent?.trim()) return;
 
       const planCell = document.createElement('td');
       planCell.className = 'p-3 border-b text-sm text-gray-600 min-w-[220px] max-w-[320px]';
@@ -117,22 +109,21 @@
   }
 
   function findPatientForRow(row) {
-    if (!Array.isArray(window.allPatients)) return null;
+    if (!Array.isArray(allPatients)) return null;
     const cells = row ? Array.from(row.children) : [];
     const cn = cells[0]?.textContent?.trim();
     if (!cn) return null;
-    return window.allPatients.find(p => String(p.ClinicNumber || '').trim() === cn) || null;
+    return allPatients.find(p => String(p.ClinicNumber || '').trim() === cn) || null;
   }
 
   function updateAppointmentControls() {
     const tbody = document.getElementById('patient-table-body');
-    if (!tbody || typeof currentPatientTab !== 'undefined' && currentPatientTab !== 'Active') return;
+    if (!tbody || (typeof currentPatientTab !== 'undefined' && currentPatientTab !== 'Active')) return;
 
     tbody.querySelectorAll('tr').forEach(row => {
       const patient = findPatientForRow(row);
       if (!patient || !isDueReached(patient)) return;
 
-      // Disable every appointment trigger in this patient row.
       row.querySelectorAll('[onclick*="openScheduleModal"]').forEach(el => {
         el.removeAttribute('onclick');
         el.classList.remove('bg-teal-500', 'hover:bg-teal-600', 'text-teal-600', 'hover:text-teal-800');
@@ -148,12 +139,6 @@
   async function refreshPatientListEnhancements() {
     if (typeof currentPatientTab !== 'undefined' && currentPatientTab !== 'Active') return;
     await loadLatestPlans();
-    if (Array.isArray(window.allPatients)) {
-      window.allPatients.forEach(patient => {
-        const pid = String(patient.PatientID || '').trim();
-        if (planMap[pid]) patient.LatestPlan = planMap[pid].Plan ?? '';
-      });
-    }
     addPlanColumn();
     updateAppointmentControls();
   }
@@ -165,7 +150,6 @@
 
     const wrapped = function (list) {
       originalDisplayPatients(list);
-      // Render immediately with cached data, then refresh after latest Plans are loaded.
       addPlanColumn();
       updateAppointmentControls();
       refreshPatientListEnhancements();
@@ -175,7 +159,6 @@
     return true;
   }
 
-  // displayPatients is declared by app.js before this file is loaded.
   if (!installWrapper()) {
     const timer = setInterval(() => {
       if (installWrapper()) clearInterval(timer);
@@ -183,8 +166,6 @@
     setTimeout(() => clearInterval(timer), 10000);
   }
 
-  // Defense in depth: even if another UI path tries to trigger the appointment button,
-  // block it for patients whose registered DueDate has been reached.
   document.addEventListener('click', function (event) {
     const target = event.target?.closest?.('[onclick*="openScheduleModal"]');
     if (!target) return;
