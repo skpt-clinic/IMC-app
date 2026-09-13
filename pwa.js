@@ -109,12 +109,9 @@
     return false;
   }
 
-  // Expose a unique handler so it cannot collide with the legacy logout() function.
   window.authLogout = authLogout;
   window.performLogout = performSupabaseLogout;
 
-  // The logout links are legacy <a href="#"> elements whose inline onclick
-  // does not return false. Capture the click before the browser follows '#'.
   document.addEventListener('click', function (event) {
     const target = event.target && event.target.closest
       ? event.target.closest('a, button')
@@ -131,10 +128,15 @@
     authLogout(event);
   }, true);
 
-  // Keep programmatic calls to logout() working as well.
   window.logout = function (event) {
     return authLogout(event);
   };
+
+  // Load summary overrides after app.js so they can safely replace the legacy renderer.
+  const summaryFixScript = document.createElement('script');
+  summaryFixScript.src = './summary-fix.js?v=20260913_1';
+  summaryFixScript.async = false;
+  document.head.appendChild(summaryFixScript);
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
