@@ -163,8 +163,8 @@ function setupInitialUI(data) {
     populateSelect('CaregiverRelationship', ['บิดา', 'มารดา', 'สามี', 'ภรรยา', 'บุตร', 'ผู้ดูแล'], true);
     populateSelect('Zone', data.zones, true);
     
-    // 6. แสดงหน้าแรก (Dashboard) และปิด Loading
-    showDashboardView();
+    // 6. แสดงหน้าที่ตรงกับ URL hash (ถ้าไม่มี hash จะ fallback ไป Dashboard)
+    navigateToCurrentRoute();
     Swal.close();
 }
 
@@ -250,6 +250,20 @@ function toggleDesktopSidebar() {
         toggleIcon.classList.add('bi-list-nested');
     }
 }
+// Mapping: viewId -> hash route
+const VIEW_HASH_MAP = {
+    'dashboard-view':     '/dashboard',
+    'patient-list-view':  '/patients',
+    'patient-detail-view':'/patient-detail',
+    'service-view':       '/service',
+    'schedule-view':      '/schedule',
+    'summary-view':       '/summary',
+    'admin-view':         '/admin',
+};
+
+// Flag to prevent hashchange loop when we update hash programmatically
+let _updatingHash = false;
+
 function setActiveView(viewId, headerText) {
     // Hide all main views
     document.querySelectorAll('main > div[id$="-view"]').forEach(v => v.style.display = 'none');
@@ -260,6 +274,13 @@ function setActiveView(viewId, headerText) {
     // Set the header title (เพิ่ม Safety Check)
     const headerTitle = document.getElementById('main-header-title');
     if(headerTitle) headerTitle.textContent = headerText;
+
+    // Update URL hash to reflect current view
+    const newHash = VIEW_HASH_MAP[viewId];
+    if (newHash && window.location.hash !== '#' + newHash) {
+        _updatingHash = true;
+        window.location.hash = newHash;
+    }
 
     // Update active state for all nav links
     const navLinks = document.querySelectorAll('.nav-link, .nav-link-mobile');
@@ -286,6 +307,55 @@ function setActiveView(viewId, headerText) {
         overlay.classList.add('hidden');
     }
 }
+
+/**
+ * อ่าน URL hash และนำทางไปยัง view ที่ตรงกัน
+ * ถ้าไม่มี hash หรือ hash ไม่รู้จัก จะ fallback ไป Dashboard
+ */
+function navigateToCurrentRoute() {
+    const hash = window.location.hash; // e.g. "#/schedule"
+    const route = hash.replace(/^#\/?/, '').toLowerCase(); // e.g. "schedule"
+
+    switch (route) {
+        case 'patients':
+        case 'list':
+            showListView();
+            break;
+        case 'service':
+            showServiceView();
+            break;
+        case 'schedule':
+            showScheduleView();
+            break;
+        case 'summary':
+            showSummaryView();
+            break;
+        case 'admin':
+            showAdminView();
+            break;
+        case 'patient-detail':
+            // ถ้า refresh บนหน้า patient-detail ให้ fallback ไป patients list
+            showListView();
+            break;
+        case 'dashboard':
+        default:
+            showDashboardView();
+            break;
+    }
+}
+
+// ฟัง hashchange event (browser Back/Forward และการพิมพ์ URL โดยตรง)
+window.addEventListener('hashchange', () => {
+    if (_updatingHash) {
+        // hash เปลี่ยนเพราะเราเซ็ตเอง ไม่ต้อง navigate ซ้ำ
+        _updatingHash = false;
+        return;
+    }
+    // hash เปลี่ยนเพราะ user กด Back/Forward หรือพิมพ์ URL
+    if (loggedInUser) {
+        navigateToCurrentRoute();
+    }
+});
 
 function showDashboardView() { setActiveView('dashboard-view', 'ภาพรวม (Dashboard)'); showLoading('กำลังโหลดข้อมูล...'); google.script.run.withSuccessHandler(renderDashboard).withFailureHandler(showError).getDashboardData(); }
 function showListView() { setActiveView('patient-list-view', 'ทะเบียนผู้ป่วย'); displayPatients(allPatients); }
