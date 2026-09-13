@@ -532,6 +532,20 @@
 
     async adminToggleRole(username, newRole) {
       try {
+        // 1. Try dedicated SECURITY DEFINER RPC
+        try {
+          const { data: rpcRes, error: rpcErr } = await client.rpc('rpc_admin_toggle_role', {
+            p_username: username.trim(),
+            p_new_role: newRole
+          });
+          if (!rpcErr && rpcRes && rpcRes.status === 'success') {
+            return rpcRes;
+          }
+        } catch (rpcEx) {
+          console.warn('rpc_admin_toggle_role notice:', rpcEx);
+        }
+
+        // 2. Direct Settings update fallback
         const { data: setRow } = await client.from('Settings').select('Value').eq('Settings', 'AdminUsers').maybeSingle();
         let admins = setRow && setRow.Value ? setRow.Value.split(',').map(s => s.trim()) : ['nat-admin'];
         const cleanUser = username.trim().toLowerCase();
