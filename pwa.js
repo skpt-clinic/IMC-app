@@ -139,6 +139,13 @@
   bodyChartSupabaseScript.async = false;
   document.head.appendChild(bodyChartSupabaseScript);
 
+  // Geolocation wrapper must load AFTER body-chart-supabase.js so it can
+  // wrap the final OPD submit handler while leaving Body Chart upload intact.
+  const geolocationSupabaseScript = document.createElement('script');
+  geolocationSupabaseScript.src = './geolocation-supabase.js?v=20260913_1';
+  geolocationSupabaseScript.async = false;
+  document.head.appendChild(geolocationSupabaseScript);
+
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('./sw.js').catch((error) => {
