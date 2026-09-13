@@ -27,7 +27,7 @@
         timeout: LOW_ACCURACY_TIMEOUT_MS,
         maximumAge: GEO_CACHE_MS
       });
-      return normalizePosition(pos, 'balanced');
+      return normalizePosition(pos);
     } catch (firstError) {
       try {
         const pos = await getPosition({
@@ -35,7 +35,7 @@
           timeout: HIGH_ACCURACY_TIMEOUT_MS,
           maximumAge: 0
         });
-        return normalizePosition(pos, 'high');
+        return normalizePosition(pos);
       } catch (secondError) {
         const error = secondError || firstError;
         const code = error && error.code;
@@ -48,16 +48,14 @@
     }
   }
 
-  function normalizePosition(position, source) {
+  function normalizePosition(position) {
     const coords = position.coords;
     return {
       GeoLatitude: Number(coords.latitude),
       GeoLongitude: Number(coords.longitude),
-      GeoAccuracy: Number.isFinite(coords.accuracy) ? Number(coords.accuracy) : null,
       GeoLocationTimestamp: new Date(position.timestamp || Date.now()).toISOString(),
       GeoTimestamp: new Date().toISOString(),
-      GeoAddress: '',
-      GeoSource: source
+      GeoAddress: ''
     };
   }
 
