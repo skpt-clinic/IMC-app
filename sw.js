@@ -1,4 +1,4 @@
-const CACHE_NAME = 'skpt-imc-plus-v7';
+const CACHE_NAME = 'skpt-imc-plus-v8';
 const APP_SHELL = [
   './',
   './index.html',
@@ -9,6 +9,8 @@ const APP_SHELL = [
   './pwa.js',
   './summary-fix.js',
   './patient-list-fix.js',
+  './body-chart-supabase.js',
+  './geolocation-supabase.js',
   './manifest.webmanifest',
   './icon.jpg',
   './views/view-dashboard.html',
