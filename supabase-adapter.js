@@ -338,13 +338,27 @@
           console.warn("Role check notice:", roleErr);
         }
 
+        // 4. Fetch License from Users table
+        let userLicense = '';
+        try {
+          const { data: userRow } = await client
+            .from('Users')
+            .select('"License"')
+            .eq('Username', res.username)
+            .maybeSingle();
+          if (userRow && userRow.License) userLicense = userRow.License;
+        } catch (licErr) {
+          console.warn('License fetch notice:', licErr);
+        }
+
         return {
           status: 'success',
           user: {
             fullName: res.fullName || res.username,
             username: res.username,
             email: res.email,
-            role: userRole
+            role: userRole,
+            license: userLicense
           }
         };
       } catch (e) {
@@ -1348,8 +1362,557 @@
 
     getImageAsBase64(fileId) {
       return null;
+    },
+
+    // =================================================================
+    // PDF GENERATION (HTML Print Window approach)
+    // =================================================================
+
+    async generateIMCCoverPdf(patientId) {
+      try {
+        const patient = await backend.getPatientById(String(patientId).trim());
+        if (!patient) return { status: 'error', message: 'ไม่พบข้อมูลผู้ป่วย' };
+        _openPrintWindow(_buildIMCCoverHtml(patient));
+        return { status: 'success' };
+      } catch (e) { return { status: 'error', message: e.message }; }
+    },
+
+    async generateConsentPdf(consentId) {
+      try {
+        const conRes = await backend.getConsentById(String(consentId).trim());
+        if (conRes.status !== 'success') return conRes;
+        const consent = conRes.record;
+        const patient = await backend.getPatientById(consent.PatientID);
+        if (!patient) return { status: 'error', message: 'ไม่พบข้อมูลผู้ป่วย' };
+        _openPrintWindow(_buildConsentHtml(patient, consent));
+        return { status: 'success' };
+      } catch (e) { return { status: 'error', message: e.message }; }
+    },
+
+    async generateBIPdf(assessmentId) {
+      try {
+        const biRes = await backend.getBIAssessmentById(String(assessmentId).trim());
+        if (biRes.status !== 'success') return biRes;
+        const assessment = biRes.record;
+        const patient = await backend.getPatientById(assessment.PatientID);
+        if (!patient) return { status: 'error', message: 'ไม่พบข้อมูลผู้ป่วย' };
+        const therapistLicense = _getTherapistLicense();
+        _openPrintWindow(_buildBIHtml(patient, assessment, therapistLicense));
+        return { status: 'success' };
+      } catch (e) { return { status: 'error', message: e.message }; }
+    },
+
+    async generateOpdPdf(recordId) {
+      try {
+        const opdRes = await backend.getOpdRecordById(String(recordId).trim());
+        if (opdRes.status !== 'success') return opdRes;
+        const record = opdRes.record;
+        const patient = await backend.getPatientById(record.PatientID);
+        if (!patient) return { status: 'error', message: 'ไม่พบข้อมูลผู้ป่วย' };
+        const therapistLicense = _getTherapistLicense();
+        _openPrintWindow(_buildOpdHtml(patient, record, therapistLicense));
+        return { status: 'success' };
+      } catch (e) { return { status: 'error', message: e.message }; }
+    },
+
+    async generateSOAPPdf(noteId) {
+      try {
+        const soapRes = await backend.getSOAPNoteById(String(noteId).trim());
+        if (soapRes.status !== 'success') return soapRes;
+        const note = soapRes.record;
+        const patient = await backend.getPatientById(note.PatientID);
+        if (!patient) return { status: 'error', message: 'ไม่พบข้อมูลผู้ป่วย' };
+        // Fetch BI for visit
+        let biData = {};
+        try {
+          const biRes = await backend.getBIAssessmentByVisit(note.PatientID, note.VisitCount);
+          if (biRes.status === 'success' && biRes.record) biData = biRes.record;
+        } catch (_) {}
+        const therapistLicense = _getTherapistLicense();
+        _openPrintWindow(_buildSOAPHtml(patient, note, biData, therapistLicense));
+        return { status: 'success' };
+      } catch (e) { return { status: 'error', message: e.message }; }
     }
   };
+
+  // =================================================================
+  // PDF Helper Functions
+  // =================================================================
+
+  function _getTherapistLicense() {
+    try {
+      const raw = localStorage.getItem('skpt_logged_in_user');
+      if (raw) {
+        const u = JSON.parse(raw);
+        return u?.license || '';
+      }
+    } catch (_) {}
+    return '';
+  }
+
+  function _openPrintWindow(html) {
+    if (typeof Swal !== 'undefined') Swal.close();
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) { alert('กรุณาอนุญาต Pop-up เพื่อพิมพ์เอกสาร'); return; }
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => {
+      try { win.focus(); win.print(); } catch (_) {}
+    }, 800);
+  }
+
+  function _chk(val) { return val === true || val === '☑' || String(val).toUpperCase() === 'TRUE' ? '☑' : '☐'; }
+
+  function _thaiDate(d) {
+    if (!d) return '-';
+    try {
+      const date = new Date(d);
+      if (isNaN(date.getTime())) return String(d);
+      return date.toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' });
+    } catch (_) { return String(d); }
+  }
+
+  function _val(v, fallback) { return (v !== null && v !== undefined && String(v).trim() !== '') ? String(v) : (fallback || '-'); }
+
+  const _CSS_COMMON = `
+    @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Sarabun', 'Tahoma', sans-serif; font-size: 13px; color: #000; background: #fff; }
+    .page { width: 210mm; min-height: 297mm; margin: 0 auto; padding: 10mm 12mm; }
+    h1 { font-size: 16px; font-weight: 700; text-align: center; margin-bottom: 4px; }
+    h2 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .section { margin-bottom: 8px; }
+    .row { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 4px; align-items: baseline; }
+    .field { display: inline-flex; align-items: baseline; gap: 4px; min-width: 120px; }
+    .label { font-weight: 600; white-space: nowrap; }
+    .val { border-bottom: 1px solid #555; min-width: 80px; display: inline-block; padding: 0 4px; }
+    .val.long { min-width: 200px; }
+    .val.full { min-width: 100%; }
+    .chk-row { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 3px 0; align-items: center; }
+    .chk-item { display: inline-flex; align-items: center; gap: 4px; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 6px; font-size: 12px; }
+    th, td { border: 1px solid #777; padding: 2px 6px; }
+    th { background: #e8e8e8; font-weight: 600; text-align: center; }
+    .sig-row { display: flex; justify-content: space-around; margin-top: 16px; }
+    .sig-box { text-align: center; width: 200px; }
+    .sig-line { border-bottom: 1px solid #555; height: 40px; margin-bottom: 4px; }
+    .header-logo { font-size: 18px; font-weight: 700; text-align: center; }
+    .sub-header { font-size: 13px; text-align: center; margin-bottom: 8px; }
+    @media print {
+      body { margin: 0; }
+      .page { margin: 0; padding: 8mm 10mm; }
+      @page { size: A4; margin: 0; }
+    }
+  `;
+
+  function _buildIMCCoverHtml(p) {
+    const dxMap = { Stroke: '☐', TBI: '☐', FxHIP: '☐', SCI: '☐' };
+    const dx = p.IMCDx || '';
+    if (dx === 'Stroke') dxMap.Stroke = '☑';
+    else if (dx === 'TBI') dxMap.TBI = '☑';
+    else if (dx === 'Fx.HIP') dxMap.FxHIP = '☑';
+    else if (dx === 'SCI') dxMap.SCI = '☑';
+    const strokeHemorrhage = p.StrokeType === 'Hemorrhage' ? '☑' : '☐';
+    const strokeIschemic = p.StrokeType === 'Ischemic' ? '☑' : '☐';
+
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ปก OPD - ${_val(p.PatientName)}</title><style>${_CSS_COMMON}</style></head><body><div class="page">
+<div class="header-logo">คลินิกกายภาพบำบัดสุขกาย IMC Plus</div>
+<h1>ปกเวชระเบียนกายภาพบำบัดผู้ป่วยใน (IMC)</h1>
+<div class="section">
+  <div class="row">
+    <span class="label">เลขที่คลินิก:</span><span class="val">${_val(p.ClinicNumber)}</span>
+    <span class="label">HN:</span><span class="val">${_val(p.HN)}</span>
+  </div>
+  <div class="row">
+    <span class="label">ชื่อ-สกุล:</span><span class="val long">${_val(p.PatientName)}</span>
+    <span class="label">เลขบัตรประชาชน:</span><span class="val">${_val(p.NationalID)}</span>
+  </div>
+  <div class="row">
+    <span class="label">วันเกิด:</span><span class="val">${_thaiDate(p.DateOfBirth)}</span>
+    <span class="label">อายุ:</span><span class="val">${_val(p.Age || (_calculateAge(p.DateOfBirth)))}</span>
+    <span class="label">เพศ:</span><span class="val">${_val(p.Gender)}</span>
+    <span class="label">สัญชาติ:</span><span class="val">${_val(p.Nationality)}</span>
+  </div>
+  <div class="row">
+    <span class="label">ที่อยู่:</span><span class="val long">${_val(p.FullAddress)}</span>
+  </div>
+  <div class="row">
+    <span class="label">โทรศัพท์:</span><span class="val">${_val(p.Phone || p.Telephone)}</span>
+    <span class="label">สิทธิการรักษา:</span><span class="val">${_val(p.TreatmentRightsDisplay || p.TreatmentRights)}</span>
+  </div>
+  <div class="row">
+    <span class="label">ผู้ดูแล:</span><span class="val">${_val(p.CaregiverName)}</span>
+    <span class="label">ความสัมพันธ์:</span><span class="val">${_val(p.CaregiverRelationship)}</span>
+    <span class="label">โทร:</span><span class="val">${_val(p.CaregiverPhone)}</span>
+  </div>
+</div>
+<div class="section">
+  <div class="label">วินิจฉัยโรค (IMC Dx):</div>
+  <div class="chk-row">
+    <span>${dxMap.Stroke} Stroke</span>
+    <span style="margin-left:16px">${strokeHemorrhage} Hemorrhage &nbsp; ${strokeIschemic} Ischemic</span>
+    <span>&nbsp;&nbsp;${dxMap.TBI} TBI</span>
+    <span>&nbsp;&nbsp;${dxMap.FxHIP} Fx.HIP</span>
+    <span>&nbsp;&nbsp;${dxMap.SCI} SCI</span>
+  </div>
+  <div class="row" style="margin-top:4px">
+    <span class="label">วันที่รับ:</span><span class="val">${_thaiDate(p.AdmitDate)}</span>
+    <span class="label">วันที่สิ้นสุด:</span><span class="val">${_thaiDate(p.DueDate)}</span>
+    <span class="label">วันที่จำหน่าย:</span><span class="val">${_thaiDate(p.DischargeDate)}</span>
+  </div>
+  <div class="row">
+    <span class="label">จำนวนครั้งที่นัดหมาย:</span><span class="val">${_val(p.VisitCount)}</span>
+    <span class="label">Zone:</span><span class="val">${_val(p.Zone)}</span>
+  </div>
+</div>
+</div></body></html>`;
+  }
+
+  function _calculateAge(dob) {
+    if (!dob) return '';
+    try {
+      const birth = new Date(dob);
+      const now = new Date();
+      let age = now.getFullYear() - birth.getFullYear();
+      const m = now.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
+      return age >= 0 ? age : '';
+    } catch (_) { return ''; }
+  }
+
+  function _buildConsentHtml(patient, consent) {
+    const isPatient = consent.ConsenterType === 'Patient' ? '☑' : '☐';
+    const isCaregiver = consent.ConsenterType !== 'Patient' ? '☑' : '☐';
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ใบยินยอม - ${_val(patient.PatientName)}</title><style>${_CSS_COMMON}</style></head><body><div class="page">
+<h1>ใบยินยอมรับการรักษาทางกายภาพบำบัด</h1>
+<h2 style="text-align:center">คลินิกกายภาพบำบัดสุขกาย IMC Plus</h2>
+<div class="section" style="margin-top:8px">
+  <div class="row"><span class="label">ชื่อผู้ป่วย:</span><span class="val long">${_val(patient.PatientName)}</span><span class="label">เลขคลินิก:</span><span class="val">${_val(patient.ClinicNumber)}</span></div>
+  <div class="row"><span class="label">วันที่:</span><span class="val">${_thaiDate(consent.ConsentDate)}</span><span class="label">ครั้งที่:</span><span class="val">${_val(consent.VisitCount)}</span></div>
+</div>
+<div class="section">
+  <p style="margin-bottom:6px">ข้าพเจ้า (ผู้ให้คำยินยอม):</p>
+  <div class="row">
+    <span class="chk-item">${isPatient} ผู้ป่วยเอง &nbsp;&nbsp; ${isCaregiver} ผู้ดูแล/ผู้ปกครอง</span>
+  </div>
+  <div class="row">
+    <span class="label">ชื่อ-สกุล:</span><span class="val long">${_val(consent.ConsenterName)}</span>
+    <span class="label">อายุ:</span><span class="val">${_val(consent.ConsenterAge)}</span>
+  </div>
+  <div class="row">
+    <span class="label">เลขบัตรประชาชน:</span><span class="val">${_val(consent.ConsenterNationalID)}</span>
+    <span class="label">ความสัมพันธ์:</span><span class="val">${_val(consent.ConsenterRelationship)}</span>
+  </div>
+  <div class="row"><span class="label">ที่อยู่:</span><span class="val long">${_val(patient.FullAddress)}</span></div>
+</div>
+<div class="section" style="margin-top:12px">
+  <p>ขอยินยอมให้นักกายภาพบำบัดดำเนินการรักษาทางกายภาพบำบัดแก่ผู้ป่วย โดยได้รับการชี้แจงเกี่ยวกับกระบวนการ ประโยชน์ และความเสี่ยงที่อาจเกิดขึ้นจากการรักษาเป็นที่เรียบร้อยแล้ว</p>
+</div>
+<div class="section" style="margin-top:8px">
+  <div class="label">หมายเหตุ:</div>
+  <div style="border: 1px solid #aaa; min-height: 60px; padding: 4px;">${_val(consent.Notes, ' ')}</div>
+</div>
+<div class="sig-row" style="margin-top:24px">
+  <div class="sig-box">
+    <div class="sig-line"></div>
+    <div>${_val(consent.ConsenterName)}</div>
+    <div>ผู้ให้คำยินยอม</div>
+  </div>
+  <div class="sig-box">
+    <div class="sig-line"></div>
+    <div>${_val(consent.WitnessName)}</div>
+    <div>พยาน</div>
+  </div>
+  <div class="sig-box">
+    <div class="sig-line"></div>
+    <div>นักกายภาพบำบัด</div>
+  </div>
+</div>
+</div></body></html>`;
+  }
+
+  function _buildBIHtml(patient, a, therapistLicense) {
+    const biItems = [
+      { label: '1. การกินอาหาร (Feeding)', opts: ['ต้องให้ผู้อื่นป้อน (0)', 'ต้องการความช่วยเหลือบางส่วน (5)', 'กินเองได้แต่อาจต้องช่วยตัด (8)', 'กินเองได้ทุกอย่าง (10)'], key: 'q1', scores: [0,5,8,10] },
+      { label: '2. การอาบน้ำ (Bathing)', opts: ['ต้องการความช่วยเหลือ (0)', 'อาบน้ำเองได้ (5)'], key: 'q2', scores: [0,5] },
+      { label: '3. การดูแลตัวเอง (Personal Grooming)', opts: ['ต้องการความช่วยเหลือ (0)', 'ล้างหน้า-หวีผม-แปรงฟัน-โกนหนวดเองได้ (5)'], key: 'q3', scores: [0,5] },
+      { label: '4. การแต่งตัว (Dressing)', opts: ['ต้องให้ผู้อื่นช่วยทั้งหมด (0)', 'ต้องการความช่วยเหลือบางส่วน (5)', 'แต่งตัวเองได้ (10)'], key: 'q4', scores: [0,5,10] },
+      { label: '5. การขับถ่ายอุจจาระ (Bowel Control)', opts: ['ไม่สามารถควบคุมได้ (0)', 'อุบัติเหตุเกิดขึ้นบ้างเป็นครั้งคราว (5)', 'ควบคุมได้ (10)'], key: 'q5', scores: [0,5,10] },
+      { label: '6. การขับถ่ายปัสสาวะ (Bladder Control)', opts: ['ไม่สามารถควบคุมได้ (0)', 'อุบัติเหตุเกิดขึ้นบ้างเป็นครั้งคราว (5)', 'ควบคุมได้ (10)'], key: 'q6', scores: [0,5,10] },
+      { label: '7. การใช้ห้องน้ำ (Toilet Use)', opts: ['ต้องการความช่วยเหลือทั้งหมด (0)', 'ต้องการความช่วยเหลือบางส่วน (5)', 'ใช้ห้องน้ำเองได้ (10)'], key: 'q7', scores: [0,5,10] },
+      { label: '8. การลุกจากเตียง (Transfer Bed to Chair)', opts: ['ทำไม่ได้ (0)', 'ต้องการความช่วยเหลือมาก (5)', 'ต้องการความช่วยเหลือน้อย (10)', 'ทำเองได้ (15)'], key: 'q8', scores: [0,5,10,15] },
+      { label: '9. การเดิน (Mobility)', opts: ['ไม่สามารถเดินได้ (0)', 'ใช้รถเข็นได้เอง (5)', 'เดินโดยมีคนช่วย (10)', 'เดินได้เอง (15)'], key: 'q9', scores: [0,5,10,15] },
+      { label: '10. การขึ้นบันได (Stair Climbing)', opts: ['ทำไม่ได้ (0)', 'ต้องการความช่วยเหลือ (5)', 'ขึ้นบันไดได้เอง (10)'], key: 'q10', scores: [0,5,10] }
+    ];
+
+    let biRows = '';
+    biItems.forEach(item => {
+      const score = parseInt(a[item.key] || 0);
+      const optsHtml = item.opts.map((opt, j) => {
+        const chk = (score === item.scores[j]) ? '☑' : '☐';
+        return `<span class="chk-item" style="margin-right:8px">${chk} ${opt}</span>`;
+      }).join(' ');
+      biRows += `<tr><td>${item.label}</td><td><div class="chk-row">${optsHtml}</div></td><td style="text-align:center">${score}</td></tr>`;
+    });
+
+    const impairmentItems = [
+      { key: 'impairment_swallowing', label: '1.Swallowing' },
+      { key: 'impairment_communicate', label: '2.Communicate' },
+      { key: 'impairment_mobility', label: '3.Mobility' },
+      { key: 'impairment_cognitive', label: '4.Cognitive/Perception' },
+      { key: 'impairment_bowel', label: '5.Bowel and Bladder' }
+    ];
+    const fxHipItems = [
+      { key: 'fx_bathroom', label: 'เข้าห้องน้ำ' },
+      { key: 'fx_bed', label: 'ขึ้นลงจากเตียง' },
+      { key: 'fx_movement', label: 'เคลื่อนไหว' },
+      { key: 'fx_stairs', label: 'ขึ้นลงบันได' }
+    ];
+
+    const impHtml = impairmentItems.map(i => `<span class="chk-item">${_chk(a[i.key])} ${i.label}</span>`).join(' &nbsp; ');
+    const fxHtml = fxHipItems.map(i => `<span class="chk-item">${_chk(a[i.key])} ${i.label}</span>`).join(' &nbsp; ');
+
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>BI Assessment - ${_val(patient.PatientName)}</title><style>${_CSS_COMMON}</style></head><body><div class="page">
+<h1>แบบประเมิน Barthel Index (BI)</h1>
+<h2 style="text-align:center">คลินิกกายภาพบำบัดสุขกาย IMC Plus</h2>
+<div class="section">
+  <div class="row">
+    <span class="label">ชื่อ-สกุล:</span><span class="val long">${_val(patient.PatientName)}</span>
+    <span class="label">เลขคลินิก:</span><span class="val">${_val(patient.ClinicNumber)}</span>
+  </div>
+  <div class="row">
+    <span class="label">วันที่ประเมิน:</span><span class="val">${_thaiDate(a.AssessmentDate)}</span>
+    <span class="label">ครั้งที่:</span><span class="val">${_val(a.VisitCount)}</span>
+    <span class="label">นักกายภาพบำบัด:</span><span class="val">${_val(a.TherapistName)}</span>
+  </div>
+  <div class="row">
+    <span class="label">เลขที่ใบประกอบวิชาชีพ:</span><span class="val">${_val(therapistLicense)}</span>
+  </div>
+</div>
+<table>
+  <thead><tr><th style="width:35%">กิจกรรม</th><th>ระดับความสามารถ</th><th style="width:60px">คะแนน</th></tr></thead>
+  <tbody>${biRows}</tbody>
+  <tfoot><tr><td colspan="2" style="text-align:right;font-weight:700">คะแนนรวม (Total Score)</td><td style="text-align:center;font-weight:700">${_val(a.TotalScore, '0')}</td></tr></tfoot>
+</table>
+<div class="section">
+  <div class="label">ความบกพร่องที่พบ (Multiple Impairment):</div>
+  <div class="chk-row" style="margin-top:4px">${impHtml}</div>
+</div>
+<div class="section">
+  <div class="label">Fx.HIP - กิจกรรมที่ต้องระวัง:</div>
+  <div class="chk-row" style="margin-top:4px">${fxHtml}</div>
+</div>
+<div class="section"><div class="label">หมายเหตุ:</div><div style="border-bottom:1px solid #aaa;min-height:30px">${_val(a.Notes, ' ')}</div></div>
+<div class="sig-row">
+  <div class="sig-box"><div class="sig-line"></div><div>นักกายภาพบำบัด</div><div style="font-size:11px">${_val(therapistLicense)}</div></div>
+</div>
+</div></body></html>`;
+  }
+
+  function _buildOpdHtml(patient, r, therapistLicense) {
+    let diag = r.Diagnosis || '';
+    const dx = { Stroke: '☐', FxHIP: '☐', SCI: '☐', TBI: '☐' };
+    if (diag.includes('Stroke')) dx.Stroke = '☑';
+    if (diag.includes('Fx.HIP')) dx.FxHIP = '☑';
+    if (diag.includes('SCI')) dx.SCI = '☑';
+    if (diag.includes('TBI')) dx.TBI = '☑';
+
+    const locStr = r.LevelOfConsciousness || '';
+    const loc = {
+      Alert: locStr.includes('Alert') ? '☑' : '☐',
+      Drowsiness: locStr.includes('Drowsiness') ? '☑' : '☐',
+      Confuse: locStr.includes('Confuse') ? '☑' : '☐',
+      Stupor: locStr.includes('Stupor') ? '☑' : '☐',
+      SemiComa: locStr.includes('Semi-coma') ? '☑' : '☐',
+      Coma: locStr.includes('Coma') ? '☑' : '☐',
+    };
+
+    const comm = r.Communication || '';
+    const commNormal = comm === 'Normal' ? '☑' : '☐';
+    const commDysarthria = comm === 'Dysarthria' ? '☑' : '☐';
+    const commAphasia = comm === 'Aphasia' ? '☑' : '☐';
+
+    let treatHtml = '';
+    try {
+      const treatment = JSON.parse(r.Treatment_Details || '{}');
+      ['QualityMove', 'BedMobility', 'Balance', 'Gait', 'Other'].forEach(key => {
+        if (treatment[key] && Object.keys(treatment[key]).length > 0) {
+          const details = (treatment[key].details || []).join(', ');
+          const time = treatment[key].time || '';
+          treatHtml += `<tr><td>${_chk(true)} ${key}</td><td>${time}</td><td>${details}</td></tr>`;
+        } else {
+          treatHtml += `<tr><td>${_chk(false)} ${key}</td><td>-</td><td>-</td></tr>`;
+        }
+      });
+    } catch (_) {}
+
+    const problemListText = r.ProblemList || '';
+    const plItems = ['Weakness', 'Poor balance', 'Poor ambulation', 'Abnormal m. length/tone', 'Risk for complication'];
+    const plHtml = plItems.map(item => `${problemListText.includes(item) ? '☑' : '☐'} ${item}`).join(' &nbsp; ');
+
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>OPD Card - ${_val(patient.PatientName)}</title><style>${_CSS_COMMON}</style></head><body><div class="page">
+<h1>OPD Card - กายภาพบำบัดผู้ป่วยใน (IMC)</h1>
+<h2 style="text-align:center">คลินิกกายภาพบำบัดสุขกาย IMC Plus</h2>
+<div class="section">
+  <div class="row">
+    <span class="label">ชื่อ-สกุล:</span><span class="val long">${_val(patient.PatientName)}</span>
+    <span class="label">เลขคลินิก:</span><span class="val">${_val(patient.ClinicNumber)}</span>
+  </div>
+  <div class="row">
+    <span class="label">วันที่:</span><span class="val">${_thaiDate(r.VisitDate)}</span>
+    <span class="label">เวลา:</span><span class="val">${_val(r.StartTime)}</span> - <span class="val">${_val(r.EndTime)}</span>
+    <span class="label">ครั้งที่:</span><span class="val">${_val(r.VisitCount)}</span>
+  </div>
+  <div class="row">
+    <span class="label">นักกายภาพบำบัด:</span><span class="val">${_val(r.TherapistName)}</span>
+    <span class="label">เลขใบประกอบวิชาชีพ:</span><span class="val">${_val(therapistLicense)}</span>
+  </div>
+  <div class="row">
+    <span class="label">Diagnosis:</span>
+    <span>${dx.Stroke} Stroke &nbsp; ${dx.FxHIP} Fx.HIP &nbsp; ${dx.SCI} SCI &nbsp; ${dx.TBI} TBI</span>
+    <span class="label">สิทธิ์:</span><span class="val">${_val(patient.TreatmentRightsDisplay || patient.TreatmentRights)}</span>
+  </div>
+</div>
+<div class="section">
+  <div class="label">ระดับความรู้สึกตัว (LOC):</div>
+  <div class="chk-row">${loc.Alert} Alert &nbsp; ${loc.Drowsiness} Drowsiness &nbsp; ${loc.Confuse} Confuse &nbsp; ${loc.Stupor} Stupor &nbsp; ${loc.SemiComa} Semi-coma &nbsp; ${loc.Coma} Coma</div>
+  <div class="row" style="margin-top:4px">
+    <span class="label">การสื่อสาร:</span>
+    <span>${commNormal} Normal &nbsp; ${commDysarthria} Dysarthria &nbsp; ${commAphasia} Aphasia</span>
+  </div>
+</div>
+<div class="section">
+  <div class="label">การประเมินทางกาย (Physical Exam):</div>
+  <div class="row"><span class="label">Bed Mobility:</span><span class="val long">${_val(r.BedMobility)}</span></div>
+  <div class="row"><span class="label">Gross Motor:</span><span class="val long">${_val(r.GrossMotor)}</span></div>
+  <div class="row"><span class="label">Balance - นั่ง:</span><span class="val">${_val(_parseJSON(r.Balance, 'Sitting'))}</span> &nbsp; <span class="label">ยืน:</span><span class="val">${_val(_parseJSON(r.Balance, 'Standing'))}</span></div>
+  <div class="row"><span class="label">Tone:</span><span class="val long">${_val(r.Tone)}</span></div>
+  <div class="row"><span class="label">PROM:</span><span class="val long">${_val(r.PROM)}</span></div>
+  <div class="row"><span class="label">Other:</span><span class="val long">${_val(r.OtherPhysical)}</span></div>
+</div>
+<div class="section">
+  <div class="label">Problem List:</div>
+  <div class="chk-row">${plHtml}</div>
+</div>
+<div class="section">
+  <div class="row"><span class="label">เป้าหมายการรักษา:</span><span class="val long">${_val(r.GoalsOfTreatment)}</span></div>
+  <div class="row"><span class="label">แผนการรักษา:</span><span class="val long">${_val(r.PlanOfTreatment)}</span></div>
+</div>
+<div class="section">
+  <div class="label">การรักษา (Treatment):</div>
+  <table><thead><tr><th>รายการ</th><th>เวลา (นาที)</th><th>รายละเอียด</th></tr></thead><tbody>${treatHtml}</tbody></table>
+</div>
+<div class="section"><div class="label">หมายเหตุ:</div><div style="border-bottom:1px solid #aaa;min-height:30px">${_val(r.Notes, ' ')}</div></div>
+<div class="sig-row">
+  <div class="sig-box"><div class="sig-line"></div><div>นักกายภาพบำบัด</div><div style="font-size:11px">${_val(therapistLicense)}</div></div>
+</div>
+</div></body></html>`;
+  }
+
+  function _parseJSON(jsonStr, key) {
+    try {
+      const obj = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : (jsonStr || {});
+      return obj[key] !== undefined ? obj[key] : '';
+    } catch (_) { return ''; }
+  }
+
+  function _buildSOAPHtml(patient, note, biData, therapistLicense) {
+    let diagArr = [];
+    try { diagArr = JSON.parse(note.DiagnosisJSON || '[]'); } catch (_) {}
+    const dx = {
+      Stroke: diagArr.includes('Stroke') ? '☑' : '☐',
+      FxHIP: diagArr.includes('Fx.HIP') ? '☑' : '☐',
+      SCI: diagArr.includes('SCI') ? '☑' : '☐',
+      TBI: diagArr.includes('TBI') ? '☑' : '☐'
+    };
+
+    // Objective
+    let objHtml = '';
+    try {
+      const obj = JSON.parse(note.ObjectiveJSON || '{}');
+      if (obj.QualityMovement_Check) {
+        const qm = obj.QualityMovement || {};
+        objHtml += `<div>Quality of Movement - UE Rt: ${_val(qm.UE?.Rt)} Lt: ${_val(qm.UE?.Lt)} &nbsp; LE Rt: ${_val(qm.LE?.Rt)} Lt: ${_val(qm.LE?.Lt)}</div>`;
+      }
+      if (obj.Other_Check) objHtml += `<div>อื่นๆ: ${_val(obj.Other_Details)}</div>`;
+    } catch (_) {}
+
+    // Treatment
+    let treatHtml = '';
+    try {
+      const treatment = JSON.parse(note.TreatmentJSON || '{}');
+      ['QualityMove', 'BedMobility', 'Balance', 'Gait', 'Other'].forEach(key => {
+        const chk = (treatment[key] && Object.keys(treatment[key]).length > 0) ? '☑' : '☐';
+        const details = treatment[key] ? (treatment[key].details || []).join(', ') : '';
+        const time = treatment[key] ? (treatment[key].time || '') : '';
+        treatHtml += `<tr><td>${chk} ${key}</td><td>${time}</td><td>${details}</td></tr>`;
+      });
+      if (treatment.Ambulation) {
+        const amb = treatment.Ambulation;
+        const ambStatus = `${amb.Status === 'NWB' ? '☑' : '☐'} NWB &nbsp; ${amb.Status === 'PWB' ? '☑' : '☐'} PWB &nbsp; ${amb.Status === 'FWB' ? '☑' : '☐'} FWB &nbsp; ${amb.Status === 'WC' ? '☑' : '☐'} W/C`;
+        treatHtml += `<tr><td>☑ Ambulation</td><td></td><td>${ambStatus} ${amb.PWB_Percent ? `(${amb.PWB_Percent}%)` : ''}</td></tr>`;
+      }
+    } catch (_) {}
+
+    // Plan
+    const plan = note.Plan || '';
+    const planFU = plan.includes('F/U Program PT ต่อเนื่อง') ? '☑' : '☐';
+    const planOFF = plan.includes('OFF PT Program') ? '☑' : '☐';
+    const planRefer = plan.includes('ส่งต่อ รพ. ดูแลต่อเนื่อง') ? '☑' : '☐';
+
+    // BI Section
+    const biScore = biData.TotalScore !== undefined ? biData.TotalScore : '-';
+
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>SOAP Note - ${_val(patient.PatientName)}</title><style>${_CSS_COMMON}</style></head><body><div class="page">
+<h1>SOAP Note - กายภาพบำบัดผู้ป่วยใน</h1>
+<h2 style="text-align:center">คลินิกกายภาพบำบัดสุขกาย IMC Plus</h2>
+<div class="section">
+  <div class="row">
+    <span class="label">ชื่อ-สกุล:</span><span class="val long">${_val(patient.PatientName)}</span>
+    <span class="label">เลขคลินิก:</span><span class="val">${_val(patient.ClinicNumber)}</span>
+  </div>
+  <div class="row">
+    <span class="label">วันที่:</span><span class="val">${_thaiDate(note.VisitDate)}</span>
+    <span class="label">เวลา:</span><span class="val">${_val(note.StartTime)}</span> - <span class="val">${_val(note.EndTime)}</span>
+    <span class="label">ครั้งที่:</span><span class="val">${_val(note.VisitCount)}</span>
+  </div>
+  <div class="row">
+    <span class="label">นักกายภาพบำบัด:</span><span class="val">${_val(note.TherapistName)}</span>
+    <span class="label">เลขใบประกอบวิชาชีพ:</span><span class="val">${_val(therapistLicense)}</span>
+  </div>
+  <div class="row">
+    <span class="label">Diagnosis:</span>
+    <span>${dx.Stroke} Stroke &nbsp; ${dx.FxHIP} Fx.HIP &nbsp; ${dx.SCI} SCI &nbsp; ${dx.TBI} TBI</span>
+  </div>
+</div>
+<div class="section">
+  <div class="label"><strong>S</strong> (Subjective):</div>
+  <div style="border-bottom:1px solid #aaa;min-height:30px;padding:2px">${_val(note.Subjective)}</div>
+</div>
+<div class="section">
+  <div class="label"><strong>O</strong> (Objective):</div>
+  ${objHtml || '<div style="border-bottom:1px solid #aaa;min-height:30px"></div>'}
+  <div class="row" style="margin-top:4px"><span class="label">Barthel Index คะแนน:</span><span class="val">${biScore}</span></div>
+</div>
+<div class="section">
+  <div class="label"><strong>A</strong> (Assessment):</div>
+  <div style="border-bottom:1px solid #aaa;min-height:30px;padding:2px">${_val(note.Assessment)}</div>
+</div>
+<div class="section">
+  <div class="label"><strong>P</strong> (Plan / Treatment):</div>
+  <table><thead><tr><th>รายการรักษา</th><th>เวลา (นาที)</th><th>รายละเอียด</th></tr></thead><tbody>${treatHtml}</tbody></table>
+  <div class="chk-row" style="margin-top:4px">
+    <span>${planFU} F/U Program PT ต่อเนื่อง</span>
+    <span>&nbsp;&nbsp;${planOFF} OFF PT Program</span>
+    <span>&nbsp;&nbsp;${planRefer} ส่งต่อ รพ. ดูแลต่อเนื่อง</span>
+  </div>
+</div>
+<div class="section"><div class="label">หมายเหตุ:</div><div style="border-bottom:1px solid #aaa;min-height:30px">${_val(note.Notes, ' ')}</div></div>
+<div class="sig-row">
+  <div class="sig-box"><div class="sig-line"></div><div>นักกายภาพบำบัด</div><div style="font-size:11px">${_val(therapistLicense)}</div></div>
+</div>
+</div></body></html>`;
+  }
 
   // -------------------------------------------------------------
   // Bridge runner mimicking google.script.run

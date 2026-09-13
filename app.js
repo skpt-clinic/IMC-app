@@ -2326,7 +2326,7 @@ function renderHistoryTable(records, title, newButtonHtml, columns, actionButton
 }
 
 function printRecord(type, recordId) {
-    showLoading('กำลังสร้างไฟล์ PDF...');
+    showLoading('กำลังเตรียมเอกสาร...');
     let printFunction;
     switch(type) {
         case 'Consent': printFunction = 'generateConsentPdf'; break;
@@ -2338,16 +2338,21 @@ function printRecord(type, recordId) {
     }
     google.script.run
         .withSuccessHandler(response => {
-            if (response.status === 'success') {
-                downloadFile(response.base64, response.fileName);
-                showSuccessToast('ไฟล์ PDF พร้อมสำหรับดาวน์โหลด');
+            Swal.close();
+            if (response && response.status === 'success') {
+                // PDF window opened by adapter; if base64 is returned (GAS mode) download it
+                if (response.base64) {
+                    downloadFile(response.base64, response.fileName);
+                    showSuccessToast('ไฟล์ PDF พร้อมสำหรับดาวน์โหลด');
+                }
             } else {
                 showError(response);
             }
         })
-        .withFailureHandler(showError)
+        .withFailureHandler(err => { Swal.close(); showError(err); })
         [printFunction](recordId);
 }
+
 function confirmDelete(type, recordId) {
     Swal.fire({
         title: 'ยืนยันการลบ',
