@@ -123,7 +123,7 @@
     return authLogout(event);
   };
 
-  // Load UI overrides after app.js.
+  // Load UI/data overrides after app.js in dependency order.
   const summaryFixScript = document.createElement('script');
   summaryFixScript.src = './summary-fix.js?v=20260913_2';
   summaryFixScript.async = false;
@@ -139,12 +139,17 @@
   bodyChartSupabaseScript.async = false;
   document.head.appendChild(bodyChartSupabaseScript);
 
-  // Geolocation wrapper must load AFTER body-chart-supabase.js so it can
-  // wrap the final OPD submit handler while leaving Body Chart upload intact.
+  // Geolocation wrapper must load after Body Chart so it wraps the final OPD/SOAP submit handlers.
   const geolocationSupabaseScript = document.createElement('script');
-  geolocationSupabaseScript.src = './geolocation-supabase.js?v=20260913_1';
+  geolocationSupabaseScript.src = './geolocation-supabase.js?v=20260913_2';
   geolocationSupabaseScript.async = false;
   document.head.appendChild(geolocationSupabaseScript);
+
+  // Visit evidence wrapper must load last so it wraps the final geolocation-aware submit handlers.
+  const visitEvidenceScript = document.createElement('script');
+  visitEvidenceScript.src = './visit-evidence.js?v=20260913_1';
+  visitEvidenceScript.async = false;
+  document.head.appendChild(visitEvidenceScript);
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
