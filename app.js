@@ -4630,49 +4630,29 @@ async function adminResetPassword(username) {
 // PASSWORD RESET FUNCTIONS
 // =================================================================
 
-// 1. Modal กรอกอีเมล (เรียกเมื่อกดลิงก์ "ลืมรหัสผ่าน")
+// 1. Modal แจ้งลืมรหัสผ่าน (ให้ติดต่อผู้ดูแลระบบ)
 function showForgotPasswordModal() {
     Swal.fire({
-        title: 'ลืมรหัสผ่าน',
-        input: 'email',
-        inputLabel: 'กรุณากรอกอีเมลที่ท่านใช้ในระบบ',
-        inputPlaceholder: 'example@email.com',
-        showCancelButton: true,
-        confirmButtonText: '<i class="bi bi-send"></i> ส่งลิงก์รีเซ็ต',
-        cancelButtonText: 'ยกเลิก',
-        confirmButtonColor: '#0d9488',
-        showLoaderOnConfirm: true,
-        preConfirm: (email) => {
-            return new Promise((resolve, reject) => {
-                google.script.run
-                    .withSuccessHandler((response) => {
-                        if (response.status === 'success') {
-                            resolve(response.message);
-                        } else {
-                            Swal.showValidationMessage(response.message);
-                            resolve(false); 
-                        }
-                    })
-                    .withFailureHandler((error) => {
-                        Swal.showValidationMessage('เกิดข้อผิดพลาด: ' + error);
-                    })
-                    .requestPasswordReset(email);
-            });
-        },
-        allowOutsideClick: () => !Swal.isLoading()
-    }).then((result) => {
-        if (result.isConfirmed) {
-            Swal.fire({
-                icon: 'success',
-                title: 'ส่งสำเร็จ!',
-                text: result.value, // ข้อความจาก Server
-                confirmButtonColor: '#0d9488'
-            });
-        }
+        title: 'ลืมรหัสผ่าน?',
+        html: `
+            <div style="text-align:center;padding:12px 0;">
+                <div style="width:56px;height:56px;border-radius:50%;background:#f0fdfa;color:#0d9488;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px;font-size:26px;">
+                    <i class="bi bi-shield-lock"></i>
+                </div>
+                <p style="color:#374151;font-size:15px;line-height:1.6;margin-bottom:8px;">
+                    ระบบ IMC ไม่มีการส่งอีเมลรีเซ็ตรหัสผ่านแบบอัตโนมัติ
+                </p>
+                <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:12px 16px;text-align:left;font-size:14px;color:#4b5563;">
+                    <p style="margin:0 0 6px 0;font-weight:600;color:#1f2937;"><i class="bi bi-info-circle mr-1" style="color:#0d9488;"></i> วิธีแก้ไข:</p>
+                    <p style="margin:0;">กรุณาติดต่อ <strong>ผู้ดูแลระบบ (Admin)</strong> ของคลินิก เพื่อดำเนินการรีเซ็ตรหัสผ่านใหม่ให้ท่านโดยตรงผ่านหน้าระบบ</p>
+                </div>
+            </div>
+        `,
+        confirmButtonText: 'รับทราบ',
+        confirmButtonColor: '#0d9488'
     });
 }
 
-// 2. Modal ตั้งค่ารหัสผ่านใหม่ (เรียกเมื่อเปิดจาก Link ในอีเมล)
 function showNewPasswordModal(token) {
     Swal.fire({
         title: 'ตั้งค่าบัญชีใหม่',

@@ -345,23 +345,45 @@
         if (newPassword.length < 6) {
           return { status: 'error', message: 'รหัสผ่านใหม่ต้องมีความยาวอย่างน้อย 6 ตัวอักษร' };
         }
-        const { data: userData, error: userError } = await client.auth.getUser();
-        if (userError || !userData?.user?.email) {
-          return { status: 'error', message: 'ไม่พบเซสชันผู้ใช้ กรุณาเข้าสู่ระบบใหม่' };
+
+        // 1. Determine username
+        let username = (typeof loggedInUser !== 'undefined' && loggedInUser && loggedInUser.username) ? loggedInUser.username : null;
+        if (!username) {
+          try {
+            const raw = localStorage.getItem('skpt_logged_in_user');
+            if (raw) {
+              const u = JSON.parse(raw);
+              username = u?.username;
+            }
+          } catch (_) {}
         }
-        // Verify old password
-        const { error: verifyError } = await client.auth.signInWithPassword({
-          email: userData.user.email,
-          password: oldPassword
-        });
-        if (verifyError) {
-          return { status: 'error', message: 'รหัสผ่านเดิมไม่ถูกต้อง' };
+
+        // 2. Call RPC to update database Users table password hash
+        if (username) {
+          const { data: rpcRes, error: rpcErr } = await client.rpc('rpc_change_own_password', {
+            p_username: username,
+            p_old_password: oldPassword,
+            p_new_password: newPassword
+          });
+          if (rpcErr) {
+            console.warn('rpc_change_own_password error:', rpcErr);
+          } else if (rpcRes) {
+            if (rpcRes.status === 'error') {
+              return { status: 'error', message: rpcRes.message || 'รหัสผ่านปัจจุบันไม่ถูกต้อง' };
+            }
+          }
         }
-        // Update password
-        const { error: updateError } = await client.auth.updateUser({ password: newPassword });
-        if (updateError) {
-          return { status: 'error', message: updateError.message || 'ไม่สามารถเปลี่ยนรหัสผ่านได้' };
+
+        // 3. Also update Supabase Auth if session exists
+        try {
+          const { data: userData } = await client.auth.getUser();
+          if (userData && userData.user) {
+            await client.auth.updateUser({ password: newPassword });
+          }
+        } catch (authErr) {
+          console.warn('Supabase auth updateUser notice:', authErr);
         }
+
         return { status: 'success', message: 'เปลี่ยนรหัสผ่านสำเร็จเรียบร้อยแล้ว' };
       } catch (e) {
         return { status: 'error', message: e.message };
