@@ -172,6 +172,11 @@
           client.from('AddressData').select('*')
         ]);
 
+        if (patientRes.error) {
+          console.error("Patients query error:", patientRes.error);
+          return { error: 'กรุณาเข้าสู่ระบบใหม่อีกครั้ง (' + (patientRes.error.message || 'Unauthorized') + ')' };
+        }
+
         const dropdowns = dropRes.data || [];
         const therapistList = dropdowns.map(r => r.Therapists).filter(Boolean);
         const zoneList = dropdowns.map(r => r.Zone).filter(Boolean);
@@ -230,28 +235,40 @@
           throw new Error('กรุณากรอก Username และ Password');
         }
 
-        const { data: users, error } = await client
-          .from('Users')
-          .select('*')
-          .eq('Username', username.trim());
+        // 1. Secure Transitional Login RPC (executes server-side in Postgres)
+        // Validates credentials securely and provisions/syncs Supabase Auth user
+        const { data: res, error: rpcError } = await client.rpc('rpc_transitional_login', {
+          p_identifier: username.trim(),
+          p_password: password
+        });
 
-        if (error || !users || users.length === 0) {
-          throw new Error('Username หรือ Password ไม่ถูกต้อง');
+        if (rpcError) {
+          console.error("Transitional login RPC error:", rpcError);
+          throw new Error('เกิดข้อผิดพลาดในการตรวจสอบบัญชี กรุณาลองใหม่อีกครั้ง');
         }
 
-        const userRow = users[0];
-        if (userRow.IsVerified === false) {
-          throw new Error('บัญชีของคุณยังไม่ได้ยืนยัน กรุณาตรวจสอบอีเมลของคุณ');
+        if (!res || res.status !== 'success') {
+          throw new Error(res?.message || 'Username หรือ Password ไม่ถูกต้อง');
         }
 
-        const computedHash = await computeSha256Base64(password + userRow.Salt);
-        if (computedHash !== userRow.PasswordHash) {
-          throw new Error('Username หรือ Password ไม่ถูกต้อง');
+        // 2. Establish Supabase Auth session (acquires real JWT with role 'authenticated')
+        const { data: authData, error: authError } = await client.auth.signInWithPassword({
+          email: res.email,
+          password: password
+        });
+
+        if (authError) {
+          console.error("Supabase Auth sign-in failed:", authError);
+          throw new Error('ไม่สามารถเข้าสู่ระบบ Authentication ได้ กรุณาลองใหม่อีกครั้ง');
         }
 
         return {
           status: 'success',
-          user: { fullName: userRow.FullName, username: userRow.Username, email: userRow.Email }
+          user: {
+            fullName: res.fullName || res.username,
+            username: res.username,
+            email: res.email
+          }
         };
       } catch (e) {
         return { status: 'error', message: e.message };
@@ -261,26 +278,46 @@
     async registerUser(userInfo) {
       try {
         const { fullName, email, username, password } = userInfo;
-        const salt = crypto.randomUUID();
-        const passwordHash = await computeSha256Base64(password + salt);
-        const verificationToken = crypto.randomUUID().replace(/-/g, '');
-        const expiryDate = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+        if (!fullName || !email || !username || !password) {
+          throw new Error('กรุณากรอกข้อมูลให้ครบทุกช่อง');
+        }
 
-        const { error } = await client.from('Users').insert([{
-          UserID: crypto.randomUUID(),
-          FullName: fullName,
-          Email: email,
-          Username: username,
-          PasswordHash: passwordHash,
-          Salt: salt,
-          IsVerified: true, // auto-verified on client migration or token based
-          VerificationToken: verificationToken,
-          TokenExpiry: expiryDate,
-          CreatedAt: new Date().toISOString()
-        }]);
+        // 1. Secure Server-side registration RPC (validates inputs, provisions auth and profile)
+        const { data: res, error: rpcError } = await client.rpc('rpc_register_user', {
+          p_fullname: fullName.trim(),
+          p_email: email.trim(),
+          p_username: username.trim(),
+          p_password: password
+        });
 
-        if (error) throw error;
-        return { status: 'success', message: 'สมัครสมาชิกสำเร็จ! เข้าสู่ระบบได้ทันที' };
+        if (rpcError) {
+          console.error("Registration RPC error:", rpcError);
+          throw new Error('ไม่สามารถสมัครสมาชิกได้ กรุณาลองใหม่อีกครั้ง');
+        }
+
+        if (!res || res.status !== 'success') {
+          throw new Error(res?.message || 'ไม่สามารถสมัครสมาชิกได้');
+        }
+
+        // 2. Auto sign in with Supabase Auth
+        try {
+          await client.auth.signInWithPassword({
+            email: email.trim().toLowerCase(),
+            password: password
+          });
+        } catch (signInErr) {
+          console.warn("Auto-login post register notice:", signInErr);
+        }
+
+        return {
+          status: 'success',
+          message: res.message || 'สมัครสมาชิกสำเร็จ! เข้าสู่ระบบได้ทันที',
+          user: {
+            fullName: res.fullName,
+            username: res.username,
+            email: res.email
+          }
+        };
       } catch (e) {
         return { status: 'error', message: e.message };
       }
@@ -288,14 +325,16 @@
 
     async requestPasswordReset(email) {
       try {
-        const { data, error } = await client.from('Users').select('*').eq('Email', email.trim().toLowerCase());
-        if (error || !data || data.length === 0) {
-          return { status: 'error', message: 'ไม่พบอีเมลนี้ในระบบ' };
+        if (!email || !email.trim()) {
+          return { status: 'error', message: 'กรุณากรอกอีเมล' };
         }
-        const token = crypto.randomUUID();
-        const expiry = new Date(Date.now() + 3600 * 1000).toISOString();
-        await client.from('Users').update({ VerificationToken: token, TokenExpiry: expiry }).eq('Email', email.trim().toLowerCase());
-        return { status: 'success', message: 'สร้างคำขอรีเซ็ตรหัสผ่านเรียบร้อยแล้ว' };
+        const { data: res, error } = await client.rpc('rpc_request_password_reset', {
+          p_email: email.trim()
+        });
+        if (error || !res) {
+          return { status: 'error', message: 'เกิดข้อผิดพลาดในการขอรีเซ็ตรหัสผ่าน' };
+        }
+        return res;
       } catch (e) {
         return { status: 'error', message: e.message };
       }
@@ -303,27 +342,17 @@
 
     async submitNewPassword(token, newUsername, newPassword) {
       try {
-        const { data: users, error } = await client.from('Users').select('*').eq('VerificationToken', token);
-        if (error || !users || users.length === 0) {
-          return { status: 'error', message: 'ลิงก์ไม่ถูกต้อง หรือถูกใช้งานไปแล้ว' };
+        if (!token || !newPassword) {
+          return { status: 'error', message: 'ข้อมูลไม่ครบถ้วน' };
         }
-        const userRow = users[0];
-        if (new Date(userRow.TokenExpiry).getTime() < Date.now()) {
-          return { status: 'error', message: 'ลิงก์หมดอายุแล้ว กรุณาทำรายการใหม่' };
+        const { data: res, error } = await client.rpc('rpc_submit_new_password', {
+          p_token: token.trim(),
+          p_new_password: newPassword
+        });
+        if (error || !res) {
+          return { status: 'error', message: 'เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน' };
         }
-
-        const newSalt = crypto.randomUUID();
-        const newHash = await computeSha256Base64(newPassword + newSalt);
-
-        await client.from('Users').update({
-          Username: newUsername,
-          PasswordHash: newHash,
-          Salt: newSalt,
-          VerificationToken: null,
-          TokenExpiry: null
-        }).eq('UserID', userRow.UserID);
-
-        return { status: 'success', message: 'ตั้งค่าบัญชีเรียบร้อยแล้ว' };
+        return res;
       } catch (e) {
         return { status: 'error', message: e.message };
       }
