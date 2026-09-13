@@ -37,34 +37,25 @@
 
   // -------------------------------------------------------------
   // Supabase logout fix
-  // The migrated app still uses the legacy logout flow, which only
-  // clears local UI state. Explicitly sign out from Supabase Auth first.
   // -------------------------------------------------------------
   async function performSupabaseLogout() {
     try {
       if (window.supabaseClient && window.supabaseClient.auth) {
         const { error } = await window.supabaseClient.auth.signOut({ scope: 'local' });
-        if (error) {
-          console.warn('Supabase signOut error:', error);
-        }
+        if (error) console.warn('Supabase signOut error:', error);
       }
     } catch (error) {
       console.warn('Supabase signOut exception:', error);
     }
 
     try {
-      if (typeof loggedInUser !== 'undefined') loggedInUser = null;
-    } catch (_) {}
-
-    try {
-      if (typeof clearLoginSession === 'function') {
-        clearLoginSession();
-      }
+      localStorage.removeItem('skpt_logged_in_user');
     } catch (error) {
-      console.warn('clearLoginSession error:', error);
+      console.warn('Unable to clear login session:', error);
     }
 
     try {
+      if (typeof loggedInUser !== 'undefined') loggedInUser = null;
       if (typeof currentPatient !== 'undefined') currentPatient = null;
       if (typeof allPatients !== 'undefined') allPatients = [];
       if (typeof currentPatientRecords !== 'undefined') currentPatientRecords = null;
@@ -72,7 +63,6 @@
 
     const mainApp = document.getElementById('main-app');
     const authContainer = document.getElementById('auth-container');
-
     if (mainApp) mainApp.style.display = 'none';
     if (authContainer) {
       authContainer.style.removeProperty('display');
@@ -92,24 +82,18 @@
       console.warn('showLoginView error:', error);
     }
 
-    if (window.location.hash) {
-      window.history.replaceState(null, '', window.location.pathname + window.location.search);
-    }
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
   }
 
-  // Override the legacy logout implementation after app.js is loaded.
-  window.performLogout = performSupabaseLogout;
-  window.logout = function (event) {
-    if (event && typeof event.preventDefault === 'function') {
-      event.preventDefault();
-    }
+  async function authLogout(event) {
+    if (event && typeof event.preventDefault === 'function') event.preventDefault();
 
     if (typeof Swal === 'undefined') {
-      performSupabaseLogout();
+      await performSupabaseLogout();
       return false;
     }
 
-    Swal.fire({
+    const result = await Swal.fire({
       title: 'ออกจากระบบ',
       text: 'คุณต้องการออกจากระบบหรือไม่?',
       icon: 'question',
@@ -117,15 +101,39 @@
       confirmButtonColor: '#0d9488',
       cancelButtonColor: '#d33',
       confirmButtonText: 'ใช่, ออกจากระบบ',
-      cancelButtonText: 'ยกเลิก'
-    }).then((result) => {
-      if (result.isConfirmed) {
-        return performSupabaseLogout();
-      }
-      return null;
+      cancelButtonText: 'ยกเลิก',
+      reverseButtons: true
     });
 
+    if (result.isConfirmed) await performSupabaseLogout();
     return false;
+  }
+
+  // Expose a unique handler so it cannot collide with the legacy logout() function.
+  window.authLogout = authLogout;
+  window.performLogout = performSupabaseLogout;
+
+  // The logout links are legacy <a href="#"> elements whose inline onclick
+  // does not return false. Capture the click before the browser follows '#'.
+  document.addEventListener('click', function (event) {
+    const target = event.target && event.target.closest
+      ? event.target.closest('a, button')
+      : null;
+    if (!target) return;
+
+    const text = (target.textContent || '').trim();
+    const inlineHandler = target.getAttribute('onclick') || '';
+    const isLogout = text === 'ออกจากระบบ' || /logout\s*\(/i.test(inlineHandler);
+    if (!isLogout) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    authLogout(event);
+  }, true);
+
+  // Keep programmatic calls to logout() working as well.
+  window.logout = function (event) {
+    return authLogout(event);
   };
 
   if ('serviceWorker' in navigator) {
