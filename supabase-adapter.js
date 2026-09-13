@@ -968,11 +968,14 @@
     async getAllRecordsForPatient(patientId) {
       try {
         const pid = String(patientId).trim();
-        const [consentRes, biRes, opdRes, soapRes] = await Promise.all([
+        const [consentRes, biRes, opdRes, soapRes, tmseRes, mhqRes, dysRes] = await Promise.all([
           client.from('Consents').select('*').eq('PatientID', pid).order('ConsentDate', { ascending: false }),
           client.from('BIAssessments').select('*').eq('PatientID', pid).order('AssessmentDate', { ascending: false }),
           client.from('OPDRecords').select('*').eq('PatientID', pid).order('VisitDate', { ascending: false }),
-          client.from('SOAPNotes').select('*').eq('PatientID', pid).order('VisitDate', { ascending: false })
+          client.from('SOAPNotes').select('*').eq('PatientID', pid).order('VisitDate', { ascending: false }),
+          client.from('TMSE_Records').select('*').eq('PatientID', pid).order('VisitDate', { ascending: false }),
+          client.from('MHQ_Records').select('*').eq('PatientID', pid).order('VisitDate', { ascending: false }),
+          client.from('Dysphagia_Records').select('*').eq('PatientID', pid).order('VisitDate', { ascending: false })
         ]);
 
         return {
@@ -981,7 +984,10 @@
             consents: consentRes.data || [],
             biAssessments: biRes.data || [],
             opdRecords: opdRes.data || [],
-            soapNotes: soapRes.data || []
+            soapNotes: soapRes.data || [],
+            tmseRecords: tmseRes.data || [],
+            mhqRecords: mhqRes.data || [],
+            dysphagiaRecords: dysRes.data || []
           }
         };
       } catch (e) {
@@ -1430,6 +1436,108 @@
         } catch (_) {}
         const therapistLicense = _getTherapistLicense();
         _openPrintWindow(_buildSOAPHtml(patient, note, biData, therapistLicense));
+        return { status: 'success' };
+      } catch (e) { return { status: 'error', message: e.message }; }
+    },
+
+    // --- TMSE Records ---
+    async getTMSERecordById(id) {
+      try {
+        const { data, error } = await client.from('TMSE_Records').select('*').eq('RecordID', id).single();
+        if (error || !data) return { status: 'error', message: 'ไม่พบข้อมูล TMSE' };
+        return { status: 'success', record: data };
+      } catch (e) {
+        return { status: 'error', message: e.message };
+      }
+    },
+
+    async deleteTMSERecordById(id) {
+      try {
+        const { error } = await client.from('TMSE_Records').delete().eq('RecordID', id);
+        if (error) throw error;
+        return { status: 'success', message: 'ลบข้อมูลสำเร็จ' };
+      } catch (e) {
+        return { status: 'error', message: e.message };
+      }
+    },
+
+    // --- MHQ Records ---
+    async getMHQRecordById(id) {
+      try {
+        const { data, error } = await client.from('MHQ_Records').select('*').eq('RecordID', id).single();
+        if (error || !data) return { status: 'error', message: 'ไม่พบข้อมูล MHQ' };
+        return { status: 'success', record: data };
+      } catch (e) {
+        return { status: 'error', message: e.message };
+      }
+    },
+
+    async deleteMHQRecordById(id) {
+      try {
+        const { error } = await client.from('MHQ_Records').delete().eq('RecordID', id);
+        if (error) throw error;
+        return { status: 'success', message: 'ลบข้อมูลสำเร็จ' };
+      } catch (e) {
+        return { status: 'error', message: e.message };
+      }
+    },
+
+    // --- Dysphagia Records ---
+    async getDysphagiaRecordById(id) {
+      try {
+        const { data, error } = await client.from('Dysphagia_Records').select('*').eq('RecordID', id).single();
+        if (error || !data) return { status: 'error', message: 'ไม่พบข้อมูล Dysphagia' };
+        return { status: 'success', record: data };
+      } catch (e) {
+        return { status: 'error', message: e.message };
+      }
+    },
+
+    async deleteDysphagiaRecordById(id) {
+      try {
+        const { error } = await client.from('Dysphagia_Records').delete().eq('RecordID', id);
+        if (error) throw error;
+        return { status: 'success', message: 'ลบข้อมูลสำเร็จ' };
+      } catch (e) {
+        return { status: 'error', message: e.message };
+      }
+    },
+
+    async generateTMSEPdf(recordId) {
+      try {
+        const res = await backend.getTMSERecordById(String(recordId).trim());
+        if (res.status !== 'success') return res;
+        const rec = res.record;
+        const patient = await backend.getPatientById(rec.PatientID);
+        if (!patient) return { status: 'error', message: 'ไม่พบข้อมูลผู้ป่วย' };
+        const therapistLicense = _getTherapistLicense();
+        _openPrintWindow(_buildTMSEHtml(patient, rec, therapistLicense));
+        return { status: 'success' };
+      } catch (e) { return { status: 'error', message: e.message }; }
+    },
+
+    async generateMHQPdf(recordId) {
+      try {
+        const res = await backend.getMHQRecordById(String(recordId).trim());
+        if (res.status !== 'success') return res;
+        const rec = res.record;
+        const patient = await backend.getPatientById(rec.PatientID);
+        if (!patient) return { status: 'error', message: 'ไม่พบข้อมูลผู้ป่วย' };
+        const therapistLicense = _getTherapistLicense();
+        _openPrintWindow(_buildMHQHtml(patient, rec, therapistLicense));
+        return { status: 'success' };
+      } catch (e) { return { status: 'error', message: e.message }; }
+    },
+
+    async generateDysphagiaPdf(recordId) {
+      try {
+        const res = await backend.getDysphagiaRecordById(String(recordId).trim());
+        if (res.status !== 'success') return res;
+        const rec = res.record;
+        const patient = await backend.getPatientById(rec.PatientID);
+        if (!patient) return { status: 'error', message: 'ไม่พบข้อมูลผู้ป่วย' };
+        const therapistLicense = _getTherapistLicense();
+        _openPrintWindow(_buildDysphagiaHtml(patient, rec, therapistLicense));
         return { status: 'success' };
       } catch (e) { return { status: 'error', message: e.message }; }
     }
@@ -1913,6 +2021,222 @@
 </div>
 </div></body></html>`;
   }
+
+  // =================================================================
+  // TMSE, MHQ, Dysphagia PDF Builders
+  // =================================================================
+
+  function _buildTMSEHtml(p, r, therapistLicense) {
+    const total = r.total_score !== null && r.total_score !== undefined ? r.total_score : '-';
+    const status = r.result_status || (total >= 24 ? 'ปกติ (Normal)' : 'มีภาวะสมองเสื่อม/บกพร่อง (Cognitive Impairment)');
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>TMSE - ${p.PatientName || ''}</title>
+<style>${_CSS_COMMON}</style></head><body><div class="page">
+<div class="header-logo">แบบทดสอบสมรรถภาพสมองไทย (Thai Mental State Examination : TMSE)</div>
+<div class="sub-header">คลินิกกายภาพบำบัด สุขกาย</div>
+<div class="section">
+  <div class="row">
+    <div class="field"><span class="label">ชื่อ-สกุล:</span><span class="val long">${_val(p.PatientName)}</span></div>
+    <div class="field"><span class="label">HN/CN:</span><span class="val">${_val(p.ClinicNumber)}</span></div>
+    <div class="field"><span class="label">อายุ:</span><span class="val">${_val(p.Age || r.Age)}</span> ปี</div>
+    <div class="field"><span class="label">วันที่ประเมิน:</span><span class="val">${_thaiDate(r.VisitDate)}</span></div>
+  </div>
+</div>
+<div class="section">
+  <h2>1. Orientation (การรับรู้เกี่ยวกับเวลาและสถานที่ - 6 คะแนน)</h2>
+  <table>
+    <thead><tr><th>ข้อที่</th><th>คำถาม / การทดสอบ</th><th style="width:120px">ผลการทดสอบ</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>วันนี้ วันอะไร (วันจันทร์-อาทิตย์)</td><td style="text-align:center">${r.q_day == 1 ? 'ถูกต้อง (1)' : 'ไม่ถูกต้อง (0)'}</td></tr>
+      <tr><td>2</td><td>วันนี้ วันที่เท่าไหร่</td><td style="text-align:center">${r.q_date == 1 ? 'ถูกต้อง (1)' : 'ไม่ถูกต้อง (0)'}</td></tr>
+      <tr><td>3</td><td>เดือนนี้ เดือนอะไร</td><td style="text-align:center">${r.q_month == 1 ? 'ถูกต้อง (1)' : 'ไม่ถูกต้อง (0)'}</td></tr>
+      <tr><td>4</td><td>ช่วงนี้ เวลาอะไร (เช้า / กลางวัน / บ่าย / เย็น)</td><td style="text-align:center">${r.q_time == 1 ? 'ถูกต้อง (1)' : 'ไม่ถูกต้อง (0)'}</td></tr>
+      <tr><td>5</td><td>ที่นี่ ที่ไหน (บ้าน / โรงพยาบาล / คลินิก)</td><td style="text-align:center">${r.q_place == 1 ? 'ถูกต้อง (1)' : 'ไม่ถูกต้อง (0)'}</td></tr>
+      <tr><td>6</td><td>ผู้ตรวจทำงานอะไร / สวมเสื้อสีอะไร</td><td style="text-align:center">${r.q_job == 1 ? 'ถูกต้อง (1)' : 'ไม่ถูกต้อง (0)'}</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="section">
+  <h2>2. Registration & Attention & Calculation</h2>
+  <table>
+    <thead><tr><th>หมวด</th><th>การทดสอบ</th><th style="width:120px">ผลการทดสอบ</th></tr></thead>
+    <tbody>
+      <tr><td>Registration (3)</td><td>จำคำ 3 คำ: ดอกไม้ (${r.q_tree == 1 ? '1' : '0'}), แม่น้ำ (${r.q_car == 1 ? '1' : '0'}), รถไฟ (${r.q_hand == 1 ? '1' : '0'})</td><td style="text-align:center">${(Number(r.q_tree||0)+Number(r.q_car||0)+Number(r.q_hand||0))} / 3</td></tr>
+      <tr><td>Attention (5)</td><td>สะกดคำย้อนหลัง (ศ-พ-พ-อ-จ): ศ(${r.q_fri==1?1:0}) พ(${r.q_thu==1?1:0}) พ(${r.q_wed==1?1:0}) อ(${r.q_tue==1?1:0}) จ(${r.q_mon==1?1:0})</td><td style="text-align:center">${(Number(r.q_fri||0)+Number(r.q_thu||0)+Number(r.q_wed||0)+Number(r.q_tue||0)+Number(r.q_mon||0))} / 5</td></tr>
+      <tr><td>Calculation (3)</td><td>ลบเลขทีละ 7 หรือ คิดเลข: ข้อ 1 (${r.q_calc1==1?1:0}), ข้อ 2 (${r.q_calc2==1?1:0}), ข้อ 3 (${r.q_calc3==1?1:0})</td><td style="text-align:center">${(Number(r.q_calc1||0)+Number(r.q_calc2||0)+Number(r.q_calc3||0))} / 3</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="section">
+  <h2>3. Language & Visuoperception</h2>
+  <table>
+    <thead><tr><th>การทดสอบ</th><th>รายละเอียด</th><th style="width:120px">ผลการทดสอบ</th></tr></thead>
+    <tbody>
+      <tr><td>บอกชื่อสิ่งของ (2)</td><td>นาฬิกา (${r.q_watch==1?1:0}), เสื้อ (${r.q_shirt==1?1:0})</td><td style="text-align:center">${(Number(r.q_watch||0)+Number(r.q_shirt||0))} / 2</td></tr>
+      <tr><td>พูดตาม (1)</td><td>"ใครใคร่ค้าม้าค้า ใครใคร่ค้าช้างค้า"</td><td style="text-align:center">${r.q_repeat == 1 ? 'ถูกต้อง (1)' : 'ไม่ถูกต้อง (0)'}</td></tr>
+      <tr><td>คำสั่ง 3 ขั้นตอน (3)</td><td>หยิบกระดาษ (${r.q_command1==1?1:0}), พับครึ่ง (${r.q_command2==1?1:0}), วางบนตัก (${r.q_command3==1?1:0})</td><td style="text-align:center">${(Number(r.q_command1||0)+Number(r.q_command2||0)+Number(r.q_command3||0))} / 3</td></tr>
+      <tr><td>อ่านและทำตาม (1)</td><td>อ่านป้าย "หลับตา" แล้วปฏิบัติตาม</td><td style="text-align:center">${r.q_read == 1 ? 'ถูกต้อง (1)' : 'ไม่ถูกต้อง (0)'}</td></tr>
+      <tr><td>วาดภาพรูปทรง (2)</td><td>วาดภาพห้าเหลี่ยมตัดกัน หรือรูปทรงตามแบบ</td><td style="text-align:center">${_val(r.q_draw, '0')} / 2</td></tr>
+      <tr><td>ความคล้ายคลึง (2)</td><td>ส้ม-กล้วย (${r.q_similar1==1?1:0}), โต๊ะ-เก้าอี้ (${r.q_similar2==1?1:0})</td><td style="text-align:center">${(Number(r.q_similar1||0)+Number(r.q_similar2||0))} / 2</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="section" style="border: 2px solid #333; padding: 10px; border-radius: 6px; margin-top: 10px; background: #fdfdfd;">
+  <div class="row" style="font-size: 14px; font-weight: bold;">
+    <span>คะแนนรวม (Total Score): <span style="font-size: 18px; color: #0284c7;">${total}</span> / 30 คะแนน</span>
+  </div>
+  <div class="row" style="margin-top: 6px;">
+    <span>ผลการประเมิน: <strong>${status}</strong></span>
+  </div>
+  <div style="font-size: 11px; color: #666; margin-top: 4px;">* เกณฑ์ปกติ: คะแนนมากกว่าหรือเท่ากับ 24 คะแนน (สำหรับผู้มีการศึกษา) หรือ 18 คะแนน (สำหรับผู้ไม่ได้รับการศึกษา)</div>
+</div>
+<div class="sig-row" style="margin-top: 24px;">
+  <div class="sig-box"><div class="sig-line"></div><div>ผู้ประเมิน / นักกายภาพบำบัด</div><div style="font-size:11px">${_val(therapistLicense)}</div></div>
+</div>
+</div></body></html>`;
+  }
+
+  function _buildMHQHtml(p, r, therapistLicense) {
+    const q9Items = [
+      'เบื่อ ไม่สนใจอยากทำอะไร',
+      'ไม่สบายใจ ซึมเศร้า หรือท้อแท้',
+      'หลับยาก หรือหลับๆ ตื่นๆ หรือหลับมากเกินไป',
+      'เหนื่อยง่าย หรือไม่ค่อยมีแรง',
+      'เบื่ออาหาร หรือกินมากเกินไป',
+      'รู้สึกไม่ดีกับตัวเอง คิดว่าตัวเองล้มเหลว หรือทำให้ครอบครัวผิดหวัง',
+      'สมาธิไม่ดีเวลาทำอะไร เช่น ดูโทรทัศน์ ฟังวิทยุ หรือทำงานที่ต้องใช้ความตั้งใจ',
+      'พูดช้าหรือทำอะไรช้าลง จนคนอื่นสังเกตเห็นได้ หรือกระสับกระส่ายจนอยู่ไม่สุข',
+      'คิดทำร้ายตนเอง หรือคิดว่าถ้าตายไปคงจะดี'
+    ];
+    let q9RowsHtml = '';
+    for (let i = 0; i < 9; i++) {
+      const val = r['q9_' + (i + 1)];
+      q9RowsHtml += `<tr><td>${i + 1}. ${q9Items[i]}</td><td style="text-align:center">${val !== null && val !== undefined ? val : '-'}</td></tr>`;
+    }
+
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>MHQ - ${p.PatientName || ''}</title>
+<style>${_CSS_COMMON}</style></head><body><div class="page">
+<div class="header-logo">แบบคัดกรองสุขภาพจิตและภาวะซึมเศร้า (MHQ: 2Q, 9Q, 8Q)</div>
+<div class="sub-header">คลินิกกายภาพบำบัด สุขกาย</div>
+<div class="section">
+  <div class="row">
+    <div class="field"><span class="label">ชื่อ-สกุล:</span><span class="val long">${_val(p.PatientName)}</span></div>
+    <div class="field"><span class="label">HN/CN:</span><span class="val">${_val(p.ClinicNumber)}</span></div>
+    <div class="field"><span class="label">อายุ:</span><span class="val">${_val(p.Age || r.Age)}</span> ปี</div>
+    <div class="field"><span class="label">วันที่ประเมิน:</span><span class="val">${_thaiDate(r.VisitDate)}</span></div>
+  </div>
+</div>
+<div class="section">
+  <h2>1. แบบคัดกรองโรคซึมเศร้า 2 คำถาม (2Q)</h2>
+  <table>
+    <thead><tr><th>คำถาม</th><th style="width:120px">ผลการตอบ</th></tr></thead>
+    <tbody>
+      <tr><td>1. ใน 2 สัปดาห์ที่ผ่านมา รู้สึกหดหู่ เศร้า หรือท้อแท้สิ้นหวังหรือไม่</td><td style="text-align:center">${r.q2_1 === 'YES' ? 'มี (YES)' : (r.q2_1 === 'NO' ? 'ไม่มี (NO)' : '-')}</td></tr>
+      <tr><td>2. ใน 2 สัปดาห์ที่ผ่านมา รู้สึกเบื่อ ทำอะไรก็ไม่เพลิดเพลินหรือไม่</td><td style="text-align:center">${r.q2_2 === 'YES' ? 'มี (YES)' : (r.q2_2 === 'NO' ? 'ไม่มี (NO)' : '-')}</td></tr>
+      <tr style="font-weight:bold; background:#f0f9ff;"><td colspan="2">สรุปผล 2Q: ${r.result_2q === 'YES' ? 'พบความเสี่ยง (มีอาการอย่างน้อย 1 ข้อ) -> ประเมินต่อด้วย 9Q' : 'ปกติ (ไม่มีความเสี่ยง)'}</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="section">
+  <h2>2. แบบประเมินโรคซึมเศร้า 9 คำถาม (9Q)</h2>
+  <table>
+    <thead><tr><th>ข้อคำถาม (ใน 2 สัปดาห์ที่ผ่านมา)</th><th style="width:120px">คะแนน (0-3)</th></tr></thead>
+    <tbody>
+      ${q9RowsHtml}
+      <tr style="font-weight:bold; background:#f0fdf4;">
+        <td>คะแนนรวม 9Q: ${_val(r.score_9q, '0')} / 27 คะแนน</td>
+        <td style="text-align:center">${_val(r.result_9q, '-')}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<div class="section">
+  <h2>3. แบบประเมินการฆ่าตัวตาย 8 คำถาม (8Q)</h2>
+  <div class="row">
+    <span class="label">คะแนนรวม 8Q:</span><span class="val">${_val(r.score_8q, '0')}</span>
+    <span class="label" style="margin-left:20px">ระดับความเสี่ยง:</span><span class="val long">${_val(r.result_8q, '-')}</span>
+  </div>
+</div>
+<div class="section" style="border: 2px solid #333; padding: 10px; border-radius: 6px; margin-top: 10px; background: #fafafa;">
+  <div class="row" style="font-size: 14px; font-weight: bold;">
+    <span>สรุปผลการประเมินสุขภาพจิต:</span>
+  </div>
+  <div class="row" style="margin-top: 4px;">
+    <span>${_val(r.result_status, '-')}</span>
+  </div>
+</div>
+<div class="sig-row" style="margin-top: 24px;">
+  <div class="sig-box"><div class="sig-line"></div><div>ผู้ประเมิน / นักกายภาพบำบัด</div><div style="font-size:11px">${_val(therapistLicense)}</div></div>
+</div>
+</div></body></html>`;
+  }
+
+  function _buildDysphagiaHtml(p, r, therapistLicense) {
+    const symList = (prefix) => {
+      const syms = [];
+      if (r[prefix + '_cough'] == 1) syms.push('ไอ (Cough)');
+      if (r[prefix + '_choke'] == 1) syms.push('สำลัก (Choke)');
+      if (r[prefix + '_tachypnea'] == 1) syms.push('หายใจเหนื่อย/เร็ว');
+      if (r[prefix + '_wetvoice'] == 1) syms.push('เสียงเปลี่ยน (Wet voice)');
+      return syms.length > 0 ? syms.join(', ') : 'ไม่มีอาการผิดปกติ';
+    };
+
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Dysphagia - ${p.PatientName || ''}</title>
+<style>${_CSS_COMMON}</style></head><body><div class="page">
+<div class="header-logo">แบบคัดกรองและประเมินภาวะกลืนลำบาก (Dysphagia Screening Form)</div>
+<div class="sub-header">คลินิกกายภาพบำบัด สุขกาย</div>
+<div class="section">
+  <div class="row">
+    <div class="field"><span class="label">ชื่อ-สกุล:</span><span class="val long">${_val(p.PatientName)}</span></div>
+    <div class="field"><span class="label">HN/CN:</span><span class="val">${_val(p.ClinicNumber)}</span></div>
+    <div class="field"><span class="label">อายุ:</span><span class="val">${_val(p.Age)}</span> ปี</div>
+    <div class="field"><span class="label">วันที่ประเมิน:</span><span class="val">${_thaiDate(r.VisitDate)}</span></div>
+  </div>
+</div>
+<div class="section">
+  <h2>ตอนที่ 1: การประเมินความพร้อมก่อนทดสอบกลืน (Pre-requisite Evaluation)</h2>
+  <table>
+    <thead><tr><th>รายการประเมิน</th><th style="width:100px">ผล</th></tr></thead>
+    <tbody>
+      <tr><td>1. ระดับความรู้สึกตัว (Alert & Cooperative ไม่ง่วงซึม ปลุกตื่นง่าย)</td><td style="text-align:center">${r.q1_1 === 'YES' ? 'ผ่าน (YES)' : 'ไม่ผ่าน (NO)'}</td></tr>
+      <tr><td>2. การทรงท่า ท่านั่งตั้งตรง 90 องศาได้ หรือศีรษะตั้งตรงมั่นคง</td><td style="text-align:center">${r.q1_2 === 'YES' ? 'ผ่าน (YES)' : 'ไม่ผ่าน (NO)'}</td></tr>
+      <tr><td>3. สามารถควบคุมน้ำลายได้เอง ไม่สำลักน้ำลายตนเอง</td><td style="text-align:center">${r.q1_3 === 'YES' ? 'ผ่าน (YES)' : 'ไม่ผ่าน (NO)'}</td></tr>
+      <tr style="font-weight:bold; background:#f0f9ff;"><td colspan="2">สรุปผลตอนที่ 1: ${r.result_group1 === 'PASS' ? 'ผ่านเกณฑ์ความพร้อม -> สามารถทดสอบการกลืนน้ำได้' : 'ไม่ผ่านเกณฑ์ความพร้อม (ห้ามทดสอบการกลืนน้ำ / แนะนำใส่สายให้อาหาร)'}</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="section">
+  <h2>ตอนที่ 2: การทดสอบการกลืนน้ำ (Water Swallowing Test)</h2>
+  <table>
+    <thead><tr><th>ระดับการทดสอบ</th><th>ผลการกลืน</th><th>อาการสำลัก / เสียงเปลี่ยน</th></tr></thead>
+    <tbody>
+      <tr><td>1. จิบน้ำ 1 ช้อนชา (5 ml) ครั้งที่ 1</td><td style="text-align:center">${r.q2_1 === 'YES' ? 'กลืนได้' : (r.q2_1 === 'NO' ? 'กลืนไม่ได้' : '-')}</td><td>${symList('sym2_3')}</td></tr>
+      <tr><td>2. จิบน้ำ 1 ช้อนชา (5 ml) ครั้งที่ 2</td><td style="text-align:center">${r.q2_2 === 'YES' ? 'กลืนได้' : (r.q2_2 === 'NO' ? 'กลืนไม่ได้' : '-')}</td><td>${symList('sym2_4')}</td></tr>
+      <tr><td>3. จิบน้ำ 1 ช้อนชา (5 ml) ครั้งที่ 3</td><td style="text-align:center">${r.q2_3 === 'YES' ? 'กลืนได้' : (r.q2_3 === 'NO' ? 'กลืนไม่ได้' : '-')}</td><td>${symList('sym2_5')}</td></tr>
+      <tr><td>4. ดื่มน้ำ 1 แก้ว (50-90 ml) ต่อเนื่อง</td><td style="text-align:center">${r.q2_6 === 'YES' ? 'ดื่มได้ต่อเนื่อง' : (r.q2_6 === 'NO' ? 'ดื่มสะดุด/สำลัก' : '-')}</td><td>${symList('sym2_6')}</td></tr>
+      <tr><td>5. ทดสอบอาหารข้น / Regular diet</td><td style="text-align:center">${r.q2_7 === 'YES' ? 'ผ่าน' : (r.q2_7 === 'NO' ? 'ไม่ผ่าน' : '-')}</td><td>${symList('sym2_7')}</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="section" style="border: 2px solid #333; padding: 10px; border-radius: 6px; margin-top: 10px; background: #fafafa;">
+  <div class="row" style="font-size: 14px; font-weight: bold;">
+    <span>ระดับภาวะการกลืน (Level / Score):</span>
+  </div>
+  <div class="row" style="margin-top: 4px;">
+    <span>${_val(r.total_score, '-')}</span>
+  </div>
+  <div class="row" style="font-size: 14px; font-weight: bold; margin-top: 8px;">
+    <span>ผลการประเมินและแผนการดูแล (Recommendation):</span>
+  </div>
+  <div class="row" style="margin-top: 4px;">
+    <span>${_val(r.result_status, '-')}</span>
+  </div>
+</div>
+<div class="sig-row" style="margin-top: 24px;">
+  <div class="sig-box"><div class="sig-line"></div><div>ผู้ประเมิน / นักกายภาพบำบัด</div><div style="font-size:11px">${_val(therapistLicense)}</div></div>
+</div>
+</div></body></html>`;
+  }
+
 
   // -------------------------------------------------------------
   // Bridge runner mimicking google.script.run

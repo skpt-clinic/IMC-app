@@ -1410,17 +1410,20 @@ function getPatientVisitGroups(records = currentPatientRecords) {
         (items || []).forEach(record => {
             const dateKey = normalizePatientDetailDate(record[dateField]);
             if (!dateKey) return;
-            if (!groups[dateKey]) groups[dateKey] = { date: dateKey, consents: [], biAssessments: [], opdRecords: [], soapNotes: [] };
-            groups[dateKey][bucket].push(record);
+            if (!groups[dateKey]) groups[dateKey] = { date: dateKey, consents: [], biAssessments: [], opdRecords: [], soapNotes: [], tmseRecords: [], mhqRecords: [], dysphagiaRecords: [] };
+            if (groups[dateKey][bucket]) groups[dateKey][bucket].push(record);
         });
     };
     register(records.consents, 'consents', 'ConsentDate');
     register(records.biAssessments, 'biAssessments', 'AssessmentDate');
     register(records.opdRecords, 'opdRecords', 'VisitDate');
     register(records.soapNotes, 'soapNotes', 'VisitDate');
+    register(records.tmseRecords, 'tmseRecords', 'VisitDate');
+    register(records.mhqRecords, 'mhqRecords', 'VisitDate');
+    register(records.dysphagiaRecords, 'dysphagiaRecords', 'VisitDate');
     return Object.values(groups).map(group => ({
         ...group,
-        totalRecords: group.consents.length + group.biAssessments.length + group.opdRecords.length + group.soapNotes.length
+        totalRecords: (group.consents?.length || 0) + (group.biAssessments?.length || 0) + (group.opdRecords?.length || 0) + (group.soapNotes?.length || 0) + (group.tmseRecords?.length || 0) + (group.mhqRecords?.length || 0) + (group.dysphagiaRecords?.length || 0)
     })).sort((a, b) => b.date.localeCompare(a.date));
 }
 
@@ -1429,7 +1432,7 @@ function loadPatientDetailRecords(onReady) {
     google.script.run
         .withSuccessHandler(response => {
             if (response.status !== 'success') return showError(response);
-            currentPatientRecords = response.records || { consents: [], biAssessments: [], opdRecords: [], soapNotes: [] };
+            currentPatientRecords = response.records || { consents: [], biAssessments: [], opdRecords: [], soapNotes: [], tmseRecords: [], mhqRecords: [], dysphagiaRecords: [] };
             const visitGroups = getPatientVisitGroups();
             if (visitGroups.length > 0) {
                 const hasSelectedDate = visitGroups.some(group => group.date === currentDetailVisitDate);
@@ -1579,12 +1582,27 @@ function displayPatientMedicalInfo() {
         const bodyHtml = `<div class="space-y-3"><div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSubSection('Visit Info & Vital signs', `เวลา ${formatTimeDisplay(record.StartTime)} - ${formatTimeDisplay(record.EndTime)}\nBT: ${safeValue(record.BT)} | Pulse: ${safeValue(record.Pulse)} | RR: ${safeValue(record.RR)}\nBP: ${safeValue(record.BP)} | SpO2: ${safeValue(record.SpO2)}`, true)}${createSubSection('Diagnosis', renderPills(parseJsonSafe(record.DiagnosisJSON, []), 'sky'))}${createSubSection('Subjective', safeValue(record.Subjective))}${createSubSection('Analysis / Assessment', safeValue(record.Analysis))}</div><div>${objectiveHtml}</div><div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSubSection('Treatment', renderTreatmentCards(record.TreatmentJSON), true)}${createSubSection('Plan of treatment', renderPills(record.Plan, 'emerald'))}</div><div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSignatureCard('ลายมือชื่อผู้ตรวจรักษา', record.TherapistName, record.TherapistSignatureBase64)}${createSignatureCard('ลายมือชื่อผู้รับบริการ / ญาติ', record.PatientNameFull, record.PatientSignatureBase64)}</div></div>`;
         return createCollapsibleCard('SOAP Note', 'border-sky-200', `${safeThaiDate(record.VisitDate)} | ครั้งที่ ${safeValue(record.VisitCount)} | คะแนน BI ${safeValue(record.BI_TotalScore)}`, bodyHtml, createActions('SOAP', record.SOAPNoteID));
     }).join('');
+    const renderTmseCards = (records) => (records || []).map(record => {
+        const bodyHtml = `<div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSubSection('คะแนนรวม (Total Score)', `${safeValue(record.total_score)} / 30`)}${createSubSection('ผลการประเมิน', safeValue(record.result_status))}</div>`;
+        return createCollapsibleCard('แบบทดสอบ TMSE', 'border-purple-200', `${safeThaiDate(record.VisitDate)} | คะแนนรวม ${safeValue(record.total_score)} / 30`, bodyHtml, createActions('TMSE', record.RecordID));
+    }).join('');
+    const renderMhqCards = (records) => (records || []).map(record => {
+        const bodyHtml = `<div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSubSection('ผล 2Q', safeValue(record.result_2q))}${createSubSection('คะแนน 9Q', record.score_9q !== null && record.score_9q !== undefined ? `${record.score_9q} (${safeValue(record.result_9q)})` : '-')}${createSubSection('คะแนน 8Q', record.score_8q !== null && record.score_8q !== undefined ? `${record.score_8q} (${safeValue(record.result_8q)})` : '-')}${createSubSection('ผลการประเมินรวม', safeValue(record.result_status))}</div>`;
+        return createCollapsibleCard('แบบคัดกรอง MHQ', 'border-pink-200', `${safeThaiDate(record.VisitDate)} | 2Q: ${safeValue(record.result_2q)} | 9Q: ${safeValue(record.score_9q)}`, bodyHtml, createActions('MHQ', record.RecordID));
+    }).join('');
+    const renderDysphagiaCards = (records) => (records || []).map(record => {
+        const bodyHtml = `<div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSubSection('ความพร้อม (ตอนที่ 1)', safeValue(record.result_group1))}${createSubSection('ระดับการกลืน', safeValue(record.total_score))}${createSubSection('ผลการประเมินและแผนดูแล', safeValue(record.result_status), true)}</div>`;
+        return createCollapsibleCard('แบบประเมินการกลืน Dysphagia', 'border-teal-200', `${safeThaiDate(record.VisitDate)} | ${safeValue(record.result_group1)}`, bodyHtml, createActions('Dysphagia', record.RecordID));
+    }).join('');
 
     const selectedVisitHtml = selectedVisit ? [
         renderConsentCards(selectedVisit.consents),
         renderBiCards(selectedVisit.biAssessments),
         renderOpdCards(selectedVisit.opdRecords),
-        renderSoapCards(selectedVisit.soapNotes)
+        renderSoapCards(selectedVisit.soapNotes),
+        renderTmseCards(selectedVisit.tmseRecords),
+        renderMhqCards(selectedVisit.mhqRecords),
+        renderDysphagiaCards(selectedVisit.dysphagiaRecords)
     ].filter(Boolean).join('') : '';
 
     container.innerHTML = `
@@ -1715,7 +1733,7 @@ function displayEMRTab() {
     google.script.run
         .withSuccessHandler(response => {
             if (response.status === 'success') {
-                const { consents, biAssessments, opdRecords, soapNotes } = response.records;
+                const { consents, biAssessments, opdRecords, soapNotes, tmseRecords, mhqRecords, dysphagiaRecords } = response.records;
                 
                 const createRecordTable = (title, records, columns, type) => {
                     if (!records || records.length === 0) { return `<div class="p-3 bg-light rounded border text-center text-muted">ยังไม่มีประวัติ${title}</div>`; }
@@ -1724,7 +1742,6 @@ function displayEMRTab() {
                     tableHtml += `<thead><tr>${columns.map(c => `<th class="py-2">${c.header}</th>`).join('')}<th class="py-2">จัดการ</th></tr></thead><tbody>`;
                      
                     records.forEach(rec => {
-                        // --- ส่วนที่แก้ไข ---
                         // เพิ่มเงื่อนไขเพื่อหา ID ที่ถูกต้องของแต่ละประเภทฟอร์ม
                         let recordId;
                         if (type === 'SOAP') {
@@ -1733,17 +1750,17 @@ function displayEMRTab() {
                             recordId = rec.RecordID;
                         } else if (type === 'BI') {
                             recordId = rec.AssessmentID;
+                        } else if (type === 'TMSE' || type === 'MHQ' || type === 'Dysphagia') {
+                            recordId = rec.RecordID;
                         } else { // สำหรับ Consent และอื่นๆ
                             recordId = rec[type + 'ID'];
                         }
-                        // --- สิ้นสุดส่วนที่แก้ไข ---
 
-                        tableHtml += `<tr style="cursor: pointer;" onclick="editRecordFromEMR('${type}', '${recordId}')">`;
+                        tableHtml += `<tr style="cursor: pointer;" onclick="printRecord('${type}', '${recordId}')">`;
                         columns.forEach(c => { tableHtml += `<td>${c.key(rec) || '-'}</td>`; });
                         tableHtml += `
                             <td class="text-nowrap">
-                                <button class="btn btn-outline-secondary btn-sm" onclick="event.stopPropagation(); editRecordFromEMR('${type}', '${recordId}')" title="รายละเอียด/แก้ไข"><i class="bi bi-pencil-fill"></i></button>
-                                <button class="btn btn-outline-info btn-sm" onclick="event.stopPropagation(); printRecord('${type}', '${recordId}')" title="พิมพ์"><i class="bi bi-printer-fill"></i></button>
+                                <button class="btn btn-outline-info btn-sm" onclick="event.stopPropagation(); printRecord('${type}', '${recordId}')" title="พิมพ์/ดูเอกสาร"><i class="bi bi-printer-fill"></i></button>
                                 <button class="btn btn-outline-danger btn-sm" onclick="event.stopPropagation(); confirmDeleteFromEMR('${type}', '${recordId}')" title="ลบ"><i class="bi bi-trash-fill"></i></button>
                             </td>`;
                         tableHtml += `</tr>`;
@@ -1757,6 +1774,13 @@ function displayEMRTab() {
                 const biColumns = [ { header: 'วันที่', key: r => formatThaiDate(r.AssessmentDate) }, { header: 'ครั้งที่', key: r => r.VisitCount }, { header: 'คะแนนรวม', key: r => r.TotalScore }];
                 const opdColumns = [ { header: 'วันที่', key: r => formatThaiDate(r.VisitDate) }, { header: 'ครั้งที่', key: r => r.VisitCount }, { header: 'อาการสำคัญ', key: r => r.ChiefComplaint }];
                 const soapColumns = [ { header: 'วันที่', key: r => formatThaiDate(r.VisitDate) }, { header: 'ครั้งที่', key: r => r.VisitCount }, { header: 'คะแนน BI', key: r => r.BI_TotalScore }];
+                const tmseColumns = [ { header: 'วันที่', key: r => formatThaiDate(r.VisitDate) }, { header: 'คะแนนรวม', key: r => `${r.total_score || '-'} / 30` }, { header: 'ผลการประเมิน', key: r => r.result_status || '-' }];
+                const mhqColumns = [ { header: 'วันที่', key: r => formatThaiDate(r.VisitDate) }, { header: 'ผล 2Q', key: r => r.result_2q || '-' }, { header: 'คะแนน 9Q', key: r => r.score_9q !== null && r.score_9q !== undefined ? `${r.score_9q} (${r.result_9q || '-'})` : '-' }, { header: 'ผลการประเมิน', key: r => r.result_status || '-' }];
+                const dysColumns = [ { header: 'วันที่', key: r => formatThaiDate(r.VisitDate) }, { header: 'ความพร้อม (ตอนที่ 1)', key: r => r.result_group1 || '-' }, { header: 'ระดับการกลืน', key: r => r.total_score || '-' }, { header: 'ผลการประเมิน', key: r => r.result_status || '-' }];
+
+                const tmseList = tmseRecords || [];
+                const mhqList = mhqRecords || [];
+                const dysList = dysphagiaRecords || [];
 
                 contentEl.innerHTML = `
                     <div class="accordion" id="emrAccordion">
@@ -1764,6 +1788,9 @@ function displayEMRTab() {
                         <div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseBI">ใบประเมิน BI (${biAssessments.length})</button></h2><div id="collapseBI" class="accordion-collapse collapse" data-bs-parent="#emrAccordion"><div class="accordion-body">${createRecordTable('BI', biAssessments, biColumns, 'BI')}</div></div></div>
                         <div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOPD">OPD Card (${opdRecords.length})</button></h2><div id="collapseOPD" class="accordion-collapse collapse" data-bs-parent="#emrAccordion"><div class="accordion-body">${createRecordTable('OPD Card', opdRecords, opdColumns, 'Opd')}</div></div></div>
                         <div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSOAP">SOAP Note (${soapNotes.length})</button></h2><div id="collapseSOAP" class="accordion-collapse collapse" data-bs-parent="#emrAccordion"><div class="accordion-body">${createRecordTable('SOAP Note', soapNotes, soapColumns, 'SOAP')}</div></div></div>
+                        <div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTMSE">แบบประเมิน TMSE (${tmseList.length})</button></h2><div id="collapseTMSE" class="accordion-collapse collapse" data-bs-parent="#emrAccordion"><div class="accordion-body">${createRecordTable('TMSE', tmseList, tmseColumns, 'TMSE')}</div></div></div>
+                        <div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseMHQ">แบบคัดกรองสุขภาพจิต MHQ (${mhqList.length})</button></h2><div id="collapseMHQ" class="accordion-collapse collapse" data-bs-parent="#emrAccordion"><div class="accordion-body">${createRecordTable('MHQ', mhqList, mhqColumns, 'MHQ')}</div></div></div>
+                        <div class="accordion-item"><h2 class="accordion-header"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDysphagia">แบบประเมินการกลืน Dysphagia (${dysList.length})</button></h2><div id="collapseDysphagia" class="accordion-collapse collapse" data-bs-parent="#emrAccordion"><div class="accordion-body">${createRecordTable('Dysphagia', dysList, dysColumns, 'Dysphagia')}</div></div></div>
                     </div>`;
             } else { showError(response); }
         })
@@ -1791,6 +1818,9 @@ function confirmDeleteFromEMR(type, recordId) {
                 case 'BI': deleteFunction = 'deleteBIAssessmentById'; break;
                 case 'Opd': deleteFunction = 'deleteOpdRecordById'; break;
                 case 'SOAP': deleteFunction = 'deleteSOAPNoteById'; break;
+                case 'TMSE': deleteFunction = 'deleteTMSERecordById'; break;
+                case 'MHQ': deleteFunction = 'deleteMHQRecordById'; break;
+                case 'Dysphagia': deleteFunction = 'deleteDysphagiaRecordById'; break;
                 default: return;
             }
             google.script.run
@@ -1900,7 +1930,7 @@ function openDownloadModal(patientId, patientName) {
  * สร้างรายการเอกสารใน Modal
  */
 function populateDownloadModal(patientId, records) {
-    const { consents, biAssessments, opdRecords, soapNotes } = records;
+    const { consents, biAssessments, opdRecords, soapNotes, tmseRecords, mhqRecords, dysphagiaRecords } = records;
     const container = document.getElementById('download-list-container');
     let html = '';
 
@@ -1917,8 +1947,8 @@ function populateDownloadModal(patientId, records) {
     html += '<hr>';
 
     // 2. Consents
-    html += `<h5><i class="bi bi-file-earmark-check-fill"></i> ใบยินยอม (${consents.length})</h5>`;
-    if (consents.length > 0) {
+    html += `<h5><i class="bi bi-file-earmark-check-fill"></i> ใบยินยอม (${consents ? consents.length : 0})</h5>`;
+    if (consents && consents.length > 0) {
         consents.forEach(c => {
             html += createCheckbox('Consent', c.ConsentID, `ใบยินยอม (ครั้งที่ ${c.VisitCount}) - ${formatThaiDate(c.ConsentDate)}`);
         });
@@ -1926,8 +1956,8 @@ function populateDownloadModal(patientId, records) {
     html += '<hr>';
 
     // 3. BI Assessments
-    html += `<h5><i class="bi bi-bar-chart-fill"></i> ใบประเมิน BI (${biAssessments.length})</h5>`;
-    if (biAssessments.length > 0) {
+    html += `<h5><i class="bi bi-bar-chart-fill"></i> ใบประเมิน BI (${biAssessments ? biAssessments.length : 0})</h5>`;
+    if (biAssessments && biAssessments.length > 0) {
         biAssessments.forEach(b => {
             html += createCheckbox('BI', b.AssessmentID, `BI (ครั้งที่ ${b.VisitCount}) - ${formatThaiDate(b.AssessmentDate)} - (คะแนน ${b.TotalScore})`);
         });
@@ -1935,8 +1965,8 @@ function populateDownloadModal(patientId, records) {
     html += '<hr>';
 
     // 4. OPD Records
-    html += `<h5><i class="bi bi-clipboard-pulse-fill"></i> OPD Card (${opdRecords.length})</h5>`;
-    if (opdRecords.length > 0) {
+    html += `<h5><i class="bi bi-clipboard-pulse-fill"></i> OPD Card (${opdRecords ? opdRecords.length : 0})</h5>`;
+    if (opdRecords && opdRecords.length > 0) {
         opdRecords.forEach(o => {
             html += createCheckbox('Opd', o.RecordID, `OPD (ครั้งที่ ${o.VisitCount}) - ${formatThaiDate(o.VisitDate)}`);
         });
@@ -1944,10 +1974,40 @@ function populateDownloadModal(patientId, records) {
     html += '<hr>';
 
     // 5. SOAP Notes
-    html += `<h5><i class="bi bi-file-earmark-medical-fill"></i> SOAP Note (${soapNotes.length})</h5>`;
-    if (soapNotes.length > 0) {
+    html += `<h5><i class="bi bi-file-earmark-medical-fill"></i> SOAP Note (${soapNotes ? soapNotes.length : 0})</h5>`;
+    if (soapNotes && soapNotes.length > 0) {
         soapNotes.forEach(s => {
             html += createCheckbox('SOAP', s.SOAPNoteID, `SOAP (ครั้งที่ ${s.VisitCount}) - ${formatThaiDate(s.VisitDate)}`);
+        });
+    } else { html += '<p class="text-muted small">ไม่พบข้อมูล</p>'; }
+    html += '<hr>';
+
+    // 6. TMSE Records
+    const tmseList = tmseRecords || [];
+    html += `<h5><i class="bi bi-journal-text"></i> แบบทดสอบ TMSE (${tmseList.length})</h5>`;
+    if (tmseList.length > 0) {
+        tmseList.forEach(t => {
+            html += createCheckbox('TMSE', t.RecordID, `TMSE - ${formatThaiDate(t.VisitDate)} (คะแนน ${t.total_score || '-'} / 30)`);
+        });
+    } else { html += '<p class="text-muted small">ไม่พบข้อมูล</p>'; }
+    html += '<hr>';
+
+    // 7. MHQ Records
+    const mhqList = mhqRecords || [];
+    html += `<h5><i class="bi bi-heart-pulse"></i> แบบคัดกรองสุขภาพจิต MHQ (${mhqList.length})</h5>`;
+    if (mhqList.length > 0) {
+        mhqList.forEach(m => {
+            html += createCheckbox('MHQ', m.RecordID, `MHQ - ${formatThaiDate(m.VisitDate)} (2Q: ${m.result_2q || '-'}, 9Q: ${m.score_9q !== null && m.score_9q !== undefined ? m.score_9q : '-'})`);
+        });
+    } else { html += '<p class="text-muted small">ไม่พบข้อมูล</p>'; }
+    html += '<hr>';
+
+    // 8. Dysphagia Records
+    const dysList = dysphagiaRecords || [];
+    html += `<h5><i class="bi bi-droplet-half"></i> แบบประเมินการกลืน Dysphagia (${dysList.length})</h5>`;
+    if (dysList.length > 0) {
+        dysList.forEach(d => {
+            html += createCheckbox('Dysphagia', d.RecordID, `Dysphagia - ${formatThaiDate(d.VisitDate)} (${d.result_group1 || '-'})`);
         });
     } else { html += '<p class="text-muted small">ไม่พบข้อมูล</p>'; }
 
@@ -2334,6 +2394,9 @@ function printRecord(type, recordId) {
         case 'Opd': printFunction = 'generateOpdPdf'; break;
         case 'SOAP': printFunction = 'generateSOAPPdf'; break;
         case 'IMCCover': printFunction = 'generateIMCCoverPdf'; break;
+        case 'TMSE': printFunction = 'generateTMSEPdf'; break;
+        case 'MHQ': printFunction = 'generateMHQPdf'; break;
+        case 'Dysphagia': printFunction = 'generateDysphagiaPdf'; break;
         default: Swal.close(); return;
     }
     google.script.run
@@ -2372,6 +2435,9 @@ function confirmDelete(type, recordId) {
                 case 'BI': deleteFunction = 'deleteBIAssessmentById'; break;
                 case 'OPD': deleteFunction = 'deleteOpdRecordById'; break;
                 case 'SOAP': deleteFunction = 'deleteSOAPNoteById'; break;
+                case 'TMSE': deleteFunction = 'deleteTMSERecordById'; break;
+                case 'MHQ': deleteFunction = 'deleteMHQRecordById'; break;
+                case 'Dysphagia': deleteFunction = 'deleteDysphagiaRecordById'; break;
                 default: Swal.close(); return;
             }
             google.script.run
