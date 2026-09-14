@@ -10,7 +10,9 @@ const path = require('path');
 const https = require('https');
 
 const SUPABASE_URL = process.env.SUPABASE_URL || "https://jvfivixnmcwsruaktirr.supabase.co";
-let SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2Zml2aXhubWN3c3J1YWt0aXJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyNDkwOTMsImV4cCI6MjEwNDgyNTA5M30.Gml6dYxIp1s_TsBGfP7BWD_w6vH1uU5yXrTT4UcwbX0";
+const ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp2Zml2aXhubWN3c3J1YWt0aXJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkyNDkwOTMsImV4cCI6MjEwNDgyNTA5M30.Gml6dYxIp1s_TsBGfP7BWD_w6vH1uU5yXrTT4UcwbX0";
+let SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY || ANON_KEY;
+let AUTH_TOKEN = SUPABASE_KEY;
 
 // Parse CLI args
 const args = process.argv.slice(2);
@@ -18,6 +20,17 @@ const isDryRun = args.includes('--dry-run');
 const keyArg = args.find(a => a.startsWith('--key='));
 if (keyArg) {
   SUPABASE_KEY = keyArg.split('=')[1].trim();
+  AUTH_TOKEN = SUPABASE_KEY;
+}
+const emailArg = args.find(a => a.startsWith('--email='));
+const passArg = args.find(a => a.startsWith('--password='));
+const loginArg = args.find(a => a.startsWith('--login='));
+let userEmail = emailArg ? emailArg.split('=')[1].trim() : null;
+let userPass = passArg ? passArg.split('=')[1].trim() : null;
+if (loginArg) {
+  const parts = loginArg.split('=')[1].split(':');
+  userEmail = parts[0]?.trim();
+  userPass = parts.slice(1).join(':')?.trim();
 }
 
 console.log('====================================================');
@@ -25,6 +38,41 @@ console.log('  Google Drive -> Supabase Storage Image Migration  ');
 console.log(`  Target Supabase: ${SUPABASE_URL}`);
 console.log(`  Mode: ${isDryRun ? 'DRY-RUN (Simulate only)' : 'LIVE MIGRATION'}`);
 console.log('====================================================\n');
+
+async function loginWithPassword(emailOrUsername, password) {
+  return new Promise((resolve, reject) => {
+    // If username without @, try finding email or appending domain
+    let email = emailOrUsername;
+    if (!email.includes('@')) {
+      email = `${emailOrUsername}@skpt.local`;
+    }
+    const url = new URL('/auth/v1/token?grant_type=password', SUPABASE_URL);
+    const headers = {
+      'apikey': ANON_KEY,
+      'Content-Type': 'application/json'
+    };
+    const body = JSON.stringify({ email, password });
+    const req = https.request(url, { method: 'POST', headers }, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (res.statusCode >= 200 && res.statusCode < 300 && parsed.access_token) {
+            resolve(parsed.access_token);
+          } else {
+            reject(new Error(parsed?.error_description || parsed?.message || `Login failed (${res.statusCode})`));
+          }
+        } catch (e) {
+          reject(new Error(`Login parse error: ${data}`));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
 
 function extractDriveId(url) {
   if (!url) return null;
@@ -60,7 +108,7 @@ async function supabaseRest(endpoint, method = 'GET', body = null) {
     const url = new URL(`/rest/v1/${endpoint}`, SUPABASE_URL);
     const headers = {
       'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Authorization': `Bearer ${AUTH_TOKEN}`,
       'Content-Type': 'application/json',
       'Prefer': 'return=representation'
     };
@@ -92,7 +140,7 @@ async function uploadToStorage(bucket, pathName, buffer, contentType) {
     const url = new URL(`/storage/v1/object/${bucket}/${encodeURIComponent(pathName).replace(/%2F/g, '/')}`, SUPABASE_URL);
     const headers = {
       'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
+      'Authorization': `Bearer ${AUTH_TOKEN}`,
       'Content-Type': contentType || 'image/png',
       'x-upsert': 'true'
     };
@@ -201,6 +249,22 @@ async function migrateTable(tableName, idCol, imageColumns) {
 }
 
 async function main() {
+  if (userEmail && userPass) {
+    console.log(`[*] Logging in as: ${userEmail}...`);
+    try {
+      AUTH_TOKEN = await loginWithPassword(userEmail, userPass);
+      console.log(`[+] Logged in successfully! Token acquired.\n`);
+    } catch (e) {
+      console.error(`[-] Login failed: ${e.message}`);
+      process.exit(1);
+    }
+  } else if (AUTH_TOKEN === ANON_KEY) {
+    console.log('[i] Note: Using default anonymous key.');
+    console.log('    If you see "permission denied", supply credentials using:');
+    console.log('    node scripts/migrate-images-to-supabase.js --key=YOUR_SERVICE_ROLE_KEY');
+    console.log('    OR: node scripts/migrate-images-to-supabase.js --login=username:password\n');
+  }
+
   const stats = {
     Patients: await migrateTable('Patients', 'PatientID', [
       { col: 'PatientPhotoURL', bucket: 'patient-photos', prefix: 'photo' }
