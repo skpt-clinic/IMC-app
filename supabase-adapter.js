@@ -40,30 +40,100 @@
     return new Blob([uInt8Array], { type: contentType });
   }
 
+  function normalizeImageUrl(url) {
+    if (!url) return '';
+    const str = String(url).trim();
+    if (!str) return '';
+    if (str.startsWith('data:image/')) return str;
+    
+    // Check if it's a Google Drive link and convert to direct CDN URL
+    if (str.includes('drive.google.com')) {
+      const idMatch = str.match(/id=([a-zA-Z0-9_-]+)/) || str.match(/\/d\/([a-zA-Z0-9_-]+)/);
+      if (idMatch && idMatch[1]) {
+        return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+      }
+    }
+    
+    // Check if it's a relative Supabase Storage path
+    if (str.startsWith('patient-photos/') || str.startsWith('body-charts/') || str.startsWith('signatures/') || str.startsWith('visit-evidence/')) {
+      const parts = str.split('/');
+      const bucket = parts[0];
+      const path = parts.slice(1).join('/');
+      if (client && client.storage) {
+        const { data } = client.storage.from(bucket).getPublicUrl(path);
+        return data?.publicUrl || str;
+      }
+    }
+    
+    return str;
+  }
+
+  async function uploadImageToBucket(bucket, path, dataUrl) {
+    if (!dataUrl || !dataUrl.startsWith('data:image/')) return dataUrl;
+    try {
+      const blob = base64ToBlob(dataUrl);
+      const { data, error } = await client.storage
+        .from(bucket)
+        .upload(path, blob, {
+          contentType: blob.type || 'image/png',
+          upsert: true
+        });
+      if (error) {
+        console.warn(`Storage upload to ${bucket} error:`, error);
+        return dataUrl;
+      }
+      const { data: pubData } = client.storage.from(bucket).getPublicUrl(path);
+      return pubData?.publicUrl || `${bucket}/${path}`;
+    } catch (e) {
+      console.warn(`Storage upload exception (${bucket}):`, e);
+      return dataUrl;
+    }
+  }
+
   async function uploadPatientPhoto(patientId, photoData) {
     if (!photoData || !photoData.startsWith('data:image/')) return photoData;
     try {
       const blob = base64ToBlob(photoData);
       const ext = blob.type.split('/')[1] || 'jpg';
       const fileName = `${patientId}_${Date.now()}.${ext}`;
-      const { data, error } = await client.storage
-        .from('patient-photos')
-        .upload(fileName, blob, {
-          contentType: blob.type,
-          upsert: true
-        });
-      if (error) {
-        console.warn("Storage upload error, falling back to base64:", error);
-        return photoData;
-      }
-      const { data: pubData } = client.storage
-        .from('patient-photos')
-        .getPublicUrl(fileName);
-      return pubData?.publicUrl || photoData;
+      const res = await uploadImageToBucket('patient-photos', fileName, photoData);
+      return res;
     } catch (e) {
       console.warn("Photo upload exception:", e);
       return photoData;
     }
+  }
+
+  function normalizeOpdRecord(row) {
+    if (!row) return row;
+    const r = { ...row };
+    r.BodyChartDrawingUrl = normalizeImageUrl(r.BodyChartDrawingUrl);
+    r.BodyChartDrawingBase64 = r.BodyChartDrawingBase64 || r.BodyChartDrawingUrl || '';
+    r.TherapistSignatureUrl = normalizeImageUrl(r.TherapistSignatureUrl);
+    r.TherapistSignatureBase64 = r.TherapistSignatureBase64 || r.TherapistSignatureUrl || '';
+    r.PatientSignatureUrl = normalizeImageUrl(r.PatientSignatureUrl);
+    r.PatientSignatureBase64 = r.PatientSignatureBase64 || r.PatientSignatureUrl || '';
+    return r;
+  }
+
+  function normalizeSoapRecord(row) {
+    if (!row) return row;
+    const r = { ...row };
+    r.TherapistSignatureUrl = normalizeImageUrl(r.TherapistSignatureUrl);
+    r.TherapistSignatureBase64 = r.TherapistSignatureBase64 || r.TherapistSignatureUrl || '';
+    r.PatientSignatureUrl = normalizeImageUrl(r.PatientSignatureUrl);
+    r.PatientSignatureBase64 = r.PatientSignatureBase64 || r.PatientSignatureUrl || '';
+    return r;
+  }
+
+  function normalizeConsentRecord(row) {
+    if (!row) return row;
+    const r = { ...row };
+    r.ConsenterSignatureUrl = normalizeImageUrl(r.ConsenterSignatureUrl);
+    r.ConsenterSignatureBase64 = r.ConsenterSignatureBase64 || r.ConsenterSignatureUrl || '';
+    r.WitnessSignatureUrl = normalizeImageUrl(r.WitnessSignatureUrl);
+    r.WitnessSignatureBase64 = r.WitnessSignatureBase64 || r.WitnessSignatureUrl || '';
+    return r;
   }
 
   function formatDate(d) {
@@ -178,7 +248,8 @@
         completed: clone.actualVisits.length,
         total: patientSchedules.length
       };
-      clone.DayEnd = clone.DueDate ? new Date(clone.DueDate).toISOString() : null;
+      clone.PatientPhotoURL = normalizeImageUrl(clone.PatientPhotoURL || clone.PatientPhotoUrl);
+      clone.PatientPhotoBase64 = clone.PatientPhotoURL || null;
 
       return clone;
     }).sort((a, b) => String(b.ClinicNumber || '').localeCompare(String(a.ClinicNumber || ''), undefined, { numeric: true }));
@@ -708,6 +779,7 @@
         if (p.PostalCode) addressParts.push(p.PostalCode);
         p.FullAddress = addressParts.join(' ');
         p.TreatmentRightsDisplay = getTreatmentRightsDisplay(p);
+        p.PatientPhotoURL = normalizeImageUrl(p.PatientPhotoURL || p.PatientPhotoUrl);
         p.PatientPhotoBase64 = p.PatientPhotoURL || null;
         return p;
       } catch (e) {
@@ -981,10 +1053,10 @@
         return {
           status: 'success',
           records: {
-            consents: consentRes.data || [],
+            consents: (consentRes.data || []).map(normalizeConsentRecord),
             biAssessments: biRes.data || [],
-            opdRecords: opdRes.data || [],
-            soapNotes: soapRes.data || [],
+            opdRecords: (opdRes.data || []).map(normalizeOpdRecord),
+            soapNotes: (soapRes.data || []).map(normalizeSoapRecord),
             tmseRecords: tmseRes.data || [],
             mhqRecords: mhqRes.data || [],
             dysphagiaRecords: dysRes.data || []
@@ -1035,7 +1107,7 @@
       try {
         const { data, error } = await client.from('OPDRecords').select('*').eq('RecordID', id).single();
         if (error || !data) return { status: 'error', message: 'ไม่พบข้อมูล' };
-        return { status: 'success', record: data };
+        return { status: 'success', record: normalizeOpdRecord(data) };
       } catch (e) {
         return { status: 'error', message: e.message };
       }
@@ -1044,6 +1116,21 @@
     async saveOpdRecord(data) {
       try {
         const record = { ...data };
+        const pid = record.PatientID || 'unknown';
+
+        if (record.BodyChartDrawingBase64 && record.BodyChartDrawingBase64.startsWith('data:image/')) {
+          record.BodyChartDrawingUrl = await uploadImageToBucket('body-charts', `${pid}/body-chart-${Date.now()}.png`, record.BodyChartDrawingBase64);
+        }
+        if (record.TherapistSignatureBase64 && record.TherapistSignatureBase64.startsWith('data:image/')) {
+          record.TherapistSignatureUrl = await uploadImageToBucket('signatures', `opd-therapist-${pid}-${Date.now()}.png`, record.TherapistSignatureBase64);
+        }
+        if (record.PatientSignatureBase64 && record.PatientSignatureBase64.startsWith('data:image/')) {
+          record.PatientSignatureUrl = await uploadImageToBucket('signatures', `opd-patient-${pid}-${Date.now()}.png`, record.PatientSignatureBase64);
+        }
+        delete record.BodyChartDrawingBase64;
+        delete record.TherapistSignatureBase64;
+        delete record.PatientSignatureBase64;
+
         let res;
         if (record.RecordID) {
           res = await client.from('OPDRecords').update(record).eq('RecordID', record.RecordID);
@@ -1074,7 +1161,7 @@
       try {
         const { data, error } = await client.from('SOAPNotes').select('*').eq('SOAPNoteID', id).single();
         if (error || !data) return { status: 'error', message: 'ไม่พบข้อมูล' };
-        return { status: 'success', record: data };
+        return { status: 'success', record: normalizeSoapRecord(data) };
       } catch (e) {
         return { status: 'error', message: e.message };
       }
@@ -1083,6 +1170,17 @@
     async saveSOAPNote(data) {
       try {
         const record = { ...data };
+        const pid = record.PatientID || 'unknown';
+
+        if (record.TherapistSignatureBase64 && record.TherapistSignatureBase64.startsWith('data:image/')) {
+          record.TherapistSignatureUrl = await uploadImageToBucket('signatures', `soap-therapist-${pid}-${Date.now()}.png`, record.TherapistSignatureBase64);
+        }
+        if (record.PatientSignatureBase64 && record.PatientSignatureBase64.startsWith('data:image/')) {
+          record.PatientSignatureUrl = await uploadImageToBucket('signatures', `soap-patient-${pid}-${Date.now()}.png`, record.PatientSignatureBase64);
+        }
+        delete record.TherapistSignatureBase64;
+        delete record.PatientSignatureBase64;
+
         let res;
         if (record.SOAPNoteID) {
           res = await client.from('SOAPNotes').update(record).eq('SOAPNoteID', record.SOAPNoteID);
@@ -1165,7 +1263,7 @@
       try {
         const { data, error } = await client.from('Consents').select('*').eq('ConsentID', id).single();
         if (error || !data) return { status: 'error', message: 'ไม่พบข้อมูล' };
-        return { status: 'success', record: data };
+        return { status: 'success', record: normalizeConsentRecord(data) };
       } catch (e) {
         return { status: 'error', message: e.message };
       }
@@ -1174,6 +1272,17 @@
     async saveConsent(data) {
       try {
         const record = { ...data };
+        const pid = record.PatientID || 'unknown';
+
+        if (record.ConsenterSignatureBase64 && record.ConsenterSignatureBase64.startsWith('data:image/')) {
+          record.ConsenterSignatureUrl = await uploadImageToBucket('signatures', `consent-consenter-${pid}-${Date.now()}.png`, record.ConsenterSignatureBase64);
+        }
+        if (record.WitnessSignatureBase64 && record.WitnessSignatureBase64.startsWith('data:image/')) {
+          record.WitnessSignatureUrl = await uploadImageToBucket('signatures', `consent-witness-${pid}-${Date.now()}.png`, record.WitnessSignatureBase64);
+        }
+        delete record.ConsenterSignatureBase64;
+        delete record.WitnessSignatureBase64;
+
         let res;
         if (record.ConsentID) {
           res = await client.from('Consents').update(record).eq('ConsentID', record.ConsentID);

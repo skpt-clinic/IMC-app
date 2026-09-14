@@ -768,20 +768,28 @@ function loadCanvasImage(canvasId, base64Url, fallbackServerId = null) {
     };
 
     if (base64Url) {
+        let finalSrc = String(base64Url).trim();
+        if (finalSrc.includes('drive.google.com')) {
+            const m = finalSrc.match(/id=([a-zA-Z0-9_-]+)/) || finalSrc.match(/\/d\/([a-zA-Z0-9_-]+)/);
+            if (m && m[1]) finalSrc = `https://lh3.googleusercontent.com/d/${m[1]}`;
+        }
         const img = new Image();
+        if (!finalSrc.startsWith('data:image/')) {
+            img.crossOrigin = 'anonymous';
+        }
         img.onload = () => drawImageScaled(img); 
-        img.src = base64Url;
-    } else if (fallbackServerId) {
-        google.script.run
-            .withSuccessHandler(base64 => {
-                if(base64) {
-                    const img = new Image();
-                    img.onload = () => drawImageScaled(img); 
-                    img.src = base64;
-                }
-            })
-            .withFailureHandler(showError)
-            .getImageAsBase64(fallbackServerId);
+        img.onerror = () => {
+            if (canvasId === 'bodyChartCanvas') {
+                const fallbackImg = new Image();
+                fallbackImg.onload = () => drawImageScaled(fallbackImg);
+                fallbackImg.src = 'Body%20Chart.jpg';
+            }
+        };
+        img.src = finalSrc;
+    } else if (canvasId === 'bodyChartCanvas') {
+        const fallbackImg = new Image();
+        fallbackImg.onload = () => drawImageScaled(fallbackImg);
+        fallbackImg.src = 'Body%20Chart.jpg';
     }
 }
 function createCheckboxGroup(containerId, name, options, hasOther = false, defaultValue = null) {
@@ -1515,7 +1523,15 @@ function displayPatientMedicalInfo() {
     const createActions = (type, recordId) => `<div class="flex flex-wrap gap-1.5"><button class="btn btn-outline-secondary btn-sm py-1 px-2" onclick="editRecordFromEMR('${type}', '${recordId}')"><i class="bi bi-pencil-fill"></i></button><button class="btn btn-outline-info btn-sm py-1 px-2" onclick="printRecord('${type}', '${recordId}')"><i class="bi bi-printer-fill"></i></button><button class="btn btn-outline-danger btn-sm py-1 px-2" onclick="confirmDeleteFromEMR('${type}', '${recordId}')"><i class="bi bi-trash-fill"></i></button></div>`;
     const createCollapsibleCard = (title, toneClass, metaText, bodyHtml, actionsHtml, open = false) => `<details class="rounded-xl border ${toneClass} bg-white shadow-sm" ${open ? 'open' : ''}><summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5"><div><p class="text-sm font-bold text-gray-800">${title}</p><p class="text-[11px] text-gray-500 leading-tight">${metaText}</p></div><i class="bi bi-chevron-down text-xs text-gray-400"></i></summary><div class="border-t border-slate-100 px-3 py-3 space-y-3">${actionsHtml}${bodyHtml}</div></details>`;
     const createSubSection = (title, content, wide = false) => `<div class="rounded-lg border border-slate-200 bg-slate-50 p-3 ${wide ? 'md:col-span-2' : ''}"><p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-gray-400">${title}</p><div class="mt-1 text-sm leading-snug text-gray-700 whitespace-pre-line">${content || '-'}</div></div>`;
-    const createSignatureCard = (title, name, signature) => (!name && !signature) ? '' : `<div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-gray-400">${title}</p><p class="mt-0.5 text-sm leading-snug text-gray-800">${safeValue(name)}</p>${signature ? `<img src="${signature}" class="mt-2 max-h-20 rounded border border-slate-200 bg-white p-1">` : ''}</div>`;
+    const createSignatureCard = (title, name, signature) => {
+        if (!name && !signature) return '';
+        let sigSrc = signature ? String(signature).trim() : '';
+        if (sigSrc.includes('drive.google.com')) {
+            const m = sigSrc.match(/id=([a-zA-Z0-9_-]+)/) || sigSrc.match(/\/d\/([a-zA-Z0-9_-]+)/);
+            if (m && m[1]) sigSrc = `https://lh3.googleusercontent.com/d/${m[1]}`;
+        }
+        return `<div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-gray-400">${title}</p><p class="mt-0.5 text-sm leading-snug text-gray-800">${safeValue(name)}</p>${sigSrc ? `<img src="${sigSrc}" class="mt-2 max-h-20 rounded border border-slate-200 bg-white p-1" onerror="this.style.display='none'">` : ''}</div>`;
+    };
     const treatmentLabelMap = { QualityMove: 'Quality move train', BedMobility: 'Bed mobility train', Balance: 'Balance train', Gait: 'Gait training', Other: 'Other' };
     const renderTreatmentCards = (jsonString) => {
         const data = parseJsonSafe(jsonString, {});
@@ -1564,7 +1580,7 @@ function displayPatientMedicalInfo() {
     `;
 
     const renderConsentCards = (records) => (records || []).map(record => {
-        const bodyHtml = `<div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSubSection('วันที่', safeThaiDate(record.ConsentDate))}${createSubSection('ชื่อ-สกุลผู้ให้คำยินยอม', safeValue(record.ConsenterName))}</div>`;
+        const bodyHtml = `<div class="space-y-3"><div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSubSection('วันที่', safeThaiDate(record.ConsentDate))}${createSubSection('ชื่อ-สกุลผู้ให้คำยินยอม', safeValue(record.ConsenterName))}</div><div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSignatureCard('ลายมือชื่อผู้ให้คำยินยอม', record.ConsenterName, record.ConsenterSignatureBase64 || record.ConsenterSignatureUrl)}${createSignatureCard('ลายมือชื่อพยาน', record.WitnessName, record.WitnessSignatureBase64 || record.WitnessSignatureUrl)}</div></div>`;
         return createCollapsibleCard('ใบยินยอม', 'border-emerald-200', `${safeThaiDate(record.ConsentDate)} | ${safeValue(record.ConsenterName)}`, bodyHtml, createActions('Consent', record.ConsentID));
     }).join('');
     const renderBiCards = (records) => (records || []).map(record => {
@@ -1573,13 +1589,23 @@ function displayPatientMedicalInfo() {
     }).join('');
     const renderOpdCards = (records) => (records || []).map(record => {
         const physicalExamHtml = `<div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSubSection('Level of consciousness', safeValue(record.LevelOfConsciousness))}${createSubSection('Communication', `${safeValue(record.Communication)}${record.Communication === 'Aphasia' && record.CommunicationAphasiaType ? ` (${record.CommunicationAphasiaType})` : ''}`)}${createSubSection('Equipment', (() => { const items = String(record.Equipment || '').split(', ').filter(Boolean).map(item => item === 'Other' ? (record.EquipmentOther ? `Other: ${record.EquipmentOther}` : 'Other') : item); return items.length ? renderPills(items, 'slate') : '-'; })())}${createSubSection('Bed mobility', safeValue(record.BedMobility))}${createSubSection('Gross motor', safeValue(record.GrossMotor))}${createSubSection('Gait analysis', renderObjectGrid(parseJsonSafe(record.GaitAnalysis_Details, {})))}${createSubSection('Quality of movement', renderObjectGrid(parseJsonSafe(record.QualityMovement, {})))}${createSubSection('Joint / Sensation UE', renderObjectGrid(parseJsonSafe(record.JointSensation_UE_Details, {})))}${createSubSection('Joint / Sensation LE', renderObjectGrid(parseJsonSafe(record.JointSensation_LE_Details, {})))}${createSubSection('Balance', renderObjectGrid(parseJsonSafe(record.Balance, {})))}${createSubSection('PROM', renderPills(record.PROM, 'rose'))}${createSubSection('Length', renderPills(record.Length, 'rose'))}${createSubSection('Tone', renderPills(record.Tone, 'rose'))}${createSubSection('Other', safeValue(record.OtherPhysical))}</div>`;
-        const bodyHtml = `<div class="space-y-3"><div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSubSection('Visit Info & Vital signs', `เวลา ${formatTimeDisplay(record.StartTime)} - ${formatTimeDisplay(record.EndTime)}\nBarthel Index: ${safeValue(record.BarthelIndex)}\nBT: ${safeValue(record.BT)} | Pulse: ${safeValue(record.Pulse)} | RR: ${safeValue(record.RR)}\nBP: ${safeValue(record.BP)} | SpO2: ${safeValue(record.SpO2)}`, true)}${createSubSection('Diagnosis', renderPills(record.Diagnosis, 'amber'))}${createSubSection('Chief complaint (CC)', safeValue(record.ChiefComplaint))}${createSubSection('Present Illness (PH/PI)', safeValue(record.PHPI))}${createSubSection('Medical Treatment', safeValue(record.MedicalTreatment))}${createSubSection('U/D', renderPills(record.UD, 'slate'))}${createSubSection('Fx.Around HIP status', `${safeValue(record.FxHIP_Status)}${record.FxHIP_PWB_Percent ? ` (${record.FxHIP_PWB_Percent}%)` : ''}`)}</div><div>${physicalExamHtml}</div>${record.BodyChartDrawingBase64 ? `<div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-gray-400">Body Chart</p><img src="${record.BodyChartDrawingBase64}" class="mt-2 max-h-64 rounded border border-slate-200 bg-white p-1"></div>` : ''}<div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSubSection('Problem List', renderPills(record.ProblemList, 'rose'))}${createSubSection('Goals of Treatment', renderPills(record.GoalsOfTreatment, 'emerald'))}${createSubSection('Plan of Treatment', renderPills(record.PlanOfTreatment, 'sky'))}${createSubSection('Treatment', renderTreatmentCards(record.Treatment_Details), true)}</div><div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSignatureCard('ลายมือชื่อผู้ตรวจรักษา', record.TherapistName, record.TherapistSignatureBase64)}${createSignatureCard('ลายมือชื่อผู้รับบริการ / ญาติ', record.PatientNameFull, record.PatientSignatureBase64)}</div></div>`;
+        const bodyChartSrc = (() => {
+            let s = record.BodyChartDrawingBase64 || record.BodyChartDrawingUrl;
+            if (!s) return '';
+            s = String(s).trim();
+            if (s.includes('drive.google.com')) {
+                const m = s.match(/id=([a-zA-Z0-9_-]+)/) || s.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                if (m && m[1]) return `https://lh3.googleusercontent.com/d/${m[1]}`;
+            }
+            return s;
+        })();
+        const bodyHtml = `<div class="space-y-3"><div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSubSection('Visit Info & Vital signs', `เวลา ${formatTimeDisplay(record.StartTime)} - ${formatTimeDisplay(record.EndTime)}\nBarthel Index: ${safeValue(record.BarthelIndex)}\nBT: ${safeValue(record.BT)} | Pulse: ${safeValue(record.Pulse)} | RR: ${safeValue(record.RR)}\nBP: ${safeValue(record.BP)} | SpO2: ${safeValue(record.SpO2)}`, true)}${createSubSection('Diagnosis', renderPills(record.Diagnosis, 'amber'))}${createSubSection('Chief complaint (CC)', safeValue(record.ChiefComplaint))}${createSubSection('Present Illness (PH/PI)', safeValue(record.PHPI))}${createSubSection('Medical Treatment', safeValue(record.MedicalTreatment))}${createSubSection('U/D', renderPills(record.UD, 'slate'))}${createSubSection('Fx.Around HIP status', `${safeValue(record.FxHIP_Status)}${record.FxHIP_PWB_Percent ? ` (${record.FxHIP_PWB_Percent}%)` : ''}`)}</div><div>${physicalExamHtml}</div>${bodyChartSrc ? `<div class="rounded-lg border border-slate-200 bg-white p-3"><p class="text-[10px] font-semibold uppercase tracking-[0.1em] text-gray-400">Body Chart</p><img src="${bodyChartSrc}" class="mt-2 max-h-64 rounded border border-slate-200 bg-white p-1" onerror="this.src='Body%20Chart.jpg'"></div>` : ''}<div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSubSection('Problem List', renderPills(record.ProblemList, 'rose'))}${createSubSection('Goals of Treatment', renderPills(record.GoalsOfTreatment, 'emerald'))}${createSubSection('Plan of Treatment', renderPills(record.PlanOfTreatment, 'sky'))}${createSubSection('Treatment', renderTreatmentCards(record.Treatment_Details), true)}</div><div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSignatureCard('ลายมือชื่อผู้ตรวจรักษา', record.TherapistName, record.TherapistSignatureBase64 || record.TherapistSignatureUrl)}${createSignatureCard('ลายมือชื่อผู้รับบริการ / ญาติ', record.PatientNameFull, record.PatientSignatureBase64 || record.PatientSignatureUrl)}</div></div>`;
         return createCollapsibleCard('OPD Card', 'border-amber-200', `${safeThaiDate(record.VisitDate)} | ครั้งที่ ${safeValue(record.VisitCount)}`, bodyHtml, createActions('Opd', record.RecordID));
     }).join('');
     const renderSoapCards = (records) => (records || []).map(record => {
         const objective = parseJsonSafe(record.ObjectiveJSON, {});
         const objectiveHtml = `<div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSubSection('Quality of movement', objective.QualityMovement_Check ? renderObjectGrid(objective.QualityMovement || {}) : '-')}${createSubSection('Other', objective.Other_Check || objective.Other_Details ? safeValue(objective.Other_Details) : '-')}</div>`;
-        const bodyHtml = `<div class="space-y-3"><div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSubSection('Visit Info & Vital signs', `เวลา ${formatTimeDisplay(record.StartTime)} - ${formatTimeDisplay(record.EndTime)}\nBT: ${safeValue(record.BT)} | Pulse: ${safeValue(record.Pulse)} | RR: ${safeValue(record.RR)}\nBP: ${safeValue(record.BP)} | SpO2: ${safeValue(record.SpO2)}`, true)}${createSubSection('Diagnosis', renderPills(parseJsonSafe(record.DiagnosisJSON, []), 'sky'))}${createSubSection('Subjective', safeValue(record.Subjective))}${createSubSection('Analysis / Assessment', safeValue(record.Analysis))}</div><div>${objectiveHtml}</div><div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSubSection('Treatment', renderTreatmentCards(record.TreatmentJSON), true)}${createSubSection('Plan of treatment', renderPills(record.Plan, 'emerald'))}</div><div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSignatureCard('ลายมือชื่อผู้ตรวจรักษา', record.TherapistName, record.TherapistSignatureBase64)}${createSignatureCard('ลายมือชื่อผู้รับบริการ / ญาติ', record.PatientNameFull, record.PatientSignatureBase64)}</div></div>`;
+        const bodyHtml = `<div class="space-y-3"><div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSubSection('Visit Info & Vital signs', `เวลา ${formatTimeDisplay(record.StartTime)} - ${formatTimeDisplay(record.EndTime)}\nBT: ${safeValue(record.BT)} | Pulse: ${safeValue(record.Pulse)} | RR: ${safeValue(record.RR)}\nBP: ${safeValue(record.BP)} | SpO2: ${safeValue(record.SpO2)}`, true)}${createSubSection('Diagnosis', renderPills(parseJsonSafe(record.DiagnosisJSON, []), 'sky'))}${createSubSection('Subjective', safeValue(record.Subjective))}${createSubSection('Analysis / Assessment', safeValue(record.Analysis))}</div><div>${objectiveHtml}</div><div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSubSection('Treatment', renderTreatmentCards(record.TreatmentJSON), true)}${createSubSection('Plan of treatment', renderPills(record.Plan, 'emerald'))}</div><div class="grid grid-cols-1 gap-2 md:grid-cols-2">${createSignatureCard('ลายมือชื่อผู้ตรวจรักษา', record.TherapistName, record.TherapistSignatureBase64 || record.TherapistSignatureUrl)}${createSignatureCard('ลายมือชื่อผู้รับบริการ / ญาติ', record.PatientNameFull, record.PatientSignatureBase64 || record.PatientSignatureUrl)}</div></div>`;
         return createCollapsibleCard('SOAP Note', 'border-sky-200', `${safeThaiDate(record.VisitDate)} | ครั้งที่ ${safeValue(record.VisitCount)} | คะแนน BI ${safeValue(record.BI_TotalScore)}`, bodyHtml, createActions('SOAP', record.SOAPNoteID));
     }).join('');
     const renderTmseCards = (records) => (records || []).map(record => {

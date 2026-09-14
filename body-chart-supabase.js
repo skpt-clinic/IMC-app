@@ -47,13 +47,31 @@
     return data && data.signedUrl ? data.signedUrl : '';
   }
 
+  function convertDriveUrl(url) {
+    if (!url) return '';
+    const str = String(url).trim();
+    const idMatch = str.match(/id=([a-zA-Z0-9_-]+)/) || str.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (idMatch && idMatch[1]) {
+      return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+    }
+    return str;
+  }
+
   async function resolveImageSource(value) {
     if (!value) return '';
     const text = String(value).trim();
     if (!text) return '';
     if (text.startsWith('data:image/')) return text;
+    if (text.includes('drive.google.com')) return convertDriveUrl(text);
     if (/^https?:\/\//i.test(text)) return text;
     if (text.startsWith(BODY_CHART_BUCKET + '/')) return await signedUrl(text.slice(BODY_CHART_BUCKET.length + 1));
+    if (text.startsWith('patient-photos/') || text.startsWith('signatures/') || text.startsWith('visit-evidence/')) {
+      const parts = text.split('/');
+      const bName = parts[0];
+      const pName = parts.slice(1).join('/');
+      const { data } = window.supabaseClient.storage.from(bName).getPublicUrl(pName);
+      return data?.publicUrl || text;
+    }
     return text;
   }
 
@@ -112,8 +130,16 @@
 
       const bodyValue = record && (record.BodyChartDrawingUrl || record.BodyChartDrawingBase64);
       await window.loadBodyChartImage('bodyChartCanvas', bodyValue);
-      if (record && record.TherapistSignatureBase64) loadCanvasImage('therapistSignatureCanvas', record.TherapistSignatureBase64);
-      if (record && record.PatientSignatureBase64) loadCanvasImage('patientSignatureCanvas', record.PatientSignatureBase64);
+      const therapistVal = record && (record.TherapistSignatureBase64 || record.TherapistSignatureUrl);
+      if (therapistVal) {
+        const src = await resolveImageSource(therapistVal);
+        loadCanvasImage('therapistSignatureCanvas', src);
+      }
+      const patientVal = record && (record.PatientSignatureBase64 || record.PatientSignatureUrl);
+      if (patientVal) {
+        const src = await resolveImageSource(patientVal);
+        loadCanvasImage('patientSignatureCanvas', src);
+      }
     }, 100);
   };
 
