@@ -12,7 +12,29 @@
     { containerId: 'modals-container', file: 'views/modals/modal-download.html' }
   ];
 
+  const EXTRA_SCRIPTS = [
+    'bridge-proxy.js?v=20260916_docs1',
+    'gas-bridge-capture.js?v=20260916_docs1',
+    'google-docs-template-adapter.js?v=20260916_docs1'
+  ];
+
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = src;
+      script.onload = resolve;
+      script.onerror = () => reject(new Error(`Failed to load ${src}`));
+      document.head.appendChild(script);
+    });
+  }
+
   window.loadAllPartials = async function () {
+    try {
+      for (const src of EXTRA_SCRIPTS) await loadScript(src);
+    } catch (err) {
+      console.error('Failed to initialize Google Docs template adapter:', err);
+    }
+
     const promises = PARTIALS.map(async (item) => {
       try {
         const res = await fetch(item.file + '?v=20260913_4');
@@ -28,12 +50,9 @@
     const results = await Promise.all(promises);
     results.forEach(({ containerId, html }) => {
       const container = document.getElementById(containerId);
-      if (container && html) {
-        container.insertAdjacentHTML('beforeend', html);
-      }
+      if (container && html) container.insertAdjacentHTML('beforeend', html);
     });
 
-    // Dispatch a custom event indicating all partials are loaded and inserted into the DOM
     window.dispatchEvent(new CustomEvent('partialsLoaded'));
   };
 })();
