@@ -12,10 +12,12 @@
     { containerId: 'modals-container', file: 'views/modals/modal-download.html' }
   ];
 
+  // Google Docs generation uses Supabase for clinical data and the existing GAS bridge
+  // only for the Google Docs/PDF operation itself.
   const EXTRA_SCRIPTS = [
-    'bridge-proxy.js?v=20260916_docs1',
-    'gas-bridge-capture.js?v=20260916_docs1',
-    'google-docs-template-adapter.js?v=20260916_docs1'
+    'bridge-proxy.js?v=20260916_docs2',
+    'gas-bridge-capture.js?v=20260916_docs2',
+    'google-docs-template-adapter-v2.js?v=20260916_docs2'
   ];
 
   function loadScript(src) {
