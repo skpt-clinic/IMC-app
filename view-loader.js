@@ -16,13 +16,13 @@ const VIEWS = [
   'views/modals/modal-download.html'
 ];
 
-// Load these once, before the view HTML is inserted.  In particular, the
-// document-print adapter must be available before EMR/service views bind their
-// print buttons.
+// Load these once, before the view HTML is inserted. The document-print
+// adapter must be available before EMR/service views bind their print buttons.
 const EXTRA_SCRIPTS = [
-  'bridge-proxy.js?v=20260916_print3',
-  'gas-bridge-capture.js?v=20260916_print3',
-  'google-docs-template-adapter-v2.js?v=20260916_print3'
+  'bridge-proxy.js?v=20260916_print4',
+  'gas-bridge-capture.js?v=20260916_print4',
+  'google-docs-template-adapter-v2.js?v=20260916_print4',
+  'google-docs-template-adapter-fix.js?v=20260916_print4'
 ];
 
 async function loadScriptOnce(src) {
@@ -52,7 +52,6 @@ async function loadAllPartials() {
       container.insertAdjacentHTML('beforeend', await response.text());
     }
 
-    // Signal that all view HTML and print integrations are ready.
     window.dispatchEvent(new CustomEvent('imc-views-loaded'));
   } catch (error) {
     console.error('[IMC] View loading error:', error);
