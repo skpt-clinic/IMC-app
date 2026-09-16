@@ -1,0 +1,252 @@
+IMC Plus — GAS PDF Renderer Fix
+
+ใช้สำหรับแก้ Code.gs ของ Google Apps Script Project เดิม
+
+เหตุผลหลัก:
+1) Google Docs placeholder ถูกส่งเข้า replaceText/findText เป็น RegExp โดยตรง ทำให้ชื่อที่มี . เช่น {{Fx.HIP}} ไม่ match แบบ exact
+2) Renderer เดิมอ่านรูปได้เฉพาะ Google Drive URL แบบ ?id=... แต่ข้อมูลใหม่จาก Supabase ใช้ https URL
+3) Body Chart ใหม่อาจไม่มี URL ใน record จึงต้อง fallback ไปที่ BODY_CHART_IMAGE_ID
+4) ต้องรองรับทั้ง Drive URL, Supabase/public/signed URL และ data:image base64
+5) IMC Cover ต้องใช้ IMC_COVER_TEMPLATE_ID ซึ่งใน code.gs ปัจจุบันมี constant นี้อยู่แล้ว
+
+============================================================
+A. แทนที่ generatePdfAsBase64() เดิมทั้งฟังก์ชัน
+============================================================
+
+function generatePdfAsBase64(templateId, data, fileNamePrefix) {
+  let tempDocFile = null;
+  try {
+    const tempFolder = DriveApp.getFolderById(PHOTO_FOLDER_ID);
+    const safePatientName = String(data.PatientName || data.ClinicNumber || 'Unknown').replace(/[\\/:*?"<>|]/g, '_');
+    const newFileName = `${fileNamePrefix}-${safePatientName}`;
+
+    tempDocFile = DriveApp.getFileById(templateId).makeCopy(newFileName, tempFolder);
+    const doc = DocumentApp.openById(tempDocFile.getId());
+    const body = doc.getBody();
+
+    // Consent: map legacy Thai placeholders to the current image placeholders.
+    if (templateId === CONSENT_TEMPLATE_ID) {
+      body.replaceText(escapeRegExp_('{{ลายมือชื่อ}}'), '{{ConsenterSignature}}');
+      body.replaceText(escapeRegExp_('{{ลายมือชื่อพยาน}}'), '{{WitnessSignature}}');
+    }
+
+    // Text + checkbox replacement.
+    // IMPORTANT: replaceText() receives a regular expression, so placeholders
+    // must be escaped. This is required for placeholders such as {{Fx.HIP}}.
+    Object.keys(data || {}).forEach(key => {
+      const placeholder = `{{${key}}}`;
+      let value = data[key];
+
+      if (value === true || value === '☑') {
+        body.replaceText(escapeRegExp_(placeholder), '☑');
+      } else if (value === false || value === '☐') {
+        body.replaceText(escapeRegExp_(placeholder), '☐');
+      } else if (value !== null && value !== undefined && value !== '') {
+        body.replaceText(escapeRegExp_(placeholder), String(value));
+      } else {
+        body.replaceText(escapeRegExp_(placeholder), ' ');
+      }
+    });
+
+    // Image placeholders.
+    // Body Chart intentionally falls back to the original template image when
+    // no drawing URL exists for the record.
+    const imagePlaceholders = [
+      'PatientPhoto',
+      'BodyChartDrawing',
+      'TherapistSignature',
+      'PatientSignature',
+      'ConsenterSignature',
+      'WitnessSignature'
+    ];
+
+    imagePlaceholders.forEach(key => {
+      let urlProperty = data[key + 'Url'] || data[key + 'URL'] || '';
+
+      if (!urlProperty && key === 'BodyChartDrawing' && BODY_CHART_IMAGE_ID) {
+        urlProperty = `https://drive.google.com/uc?id=${BODY_CHART_IMAGE_ID}`;
+      }
+
+      if (!urlProperty) return;
+
+      let imageWidth = 180;
+      if (key === 'PatientPhoto') imageWidth = 120;
+      else if (key === 'BodyChartDrawing') imageWidth = 250;
+
+      try {
+        const blob = getImageBlobFromSource_(urlProperty, `${key}.png`);
+        if (blob) {
+          replacePlaceholderWithImageBlob(body, `{{${key}}}`, blob, imageWidth);
+        }
+      } catch (imageErr) {
+        Logger.log(`Could not load image for ${key}: ${imageErr}`);
+        body.replaceText(escapeRegExp_(`{{${key}}}`), ' ');
+      }
+    });
+
+    // Remove any placeholders that were not supplied by the data object.
+    body.replaceText('\\{\\{[\\s\\S]*?\\}\\}', ' ');
+
+    doc.saveAndClose();
+
+    const pdfBlob = tempDocFile.getAs(MimeType.PDF);
+    const base64Data = Utilities.base64Encode(pdfBlob.getBytes());
+    const resultFileName = `${newFileName}.pdf`;
+
+    tempDocFile.setTrashed(true);
+    tempDocFile = null;
+
+    return {
+      status: 'success',
+      base64: base64Data,
+      fileName: resultFileName
+    };
+  } catch (e) {
+    if (tempDocFile) {
+      try { tempDocFile.setTrashed(true); } catch (_) {}
+    }
+    Logger.log(`Error generating PDF for ${fileNamePrefix}: ${e.toString()}\nStack: ${e.stack}`);
+    return {
+      status: 'error',
+      message: `เกิดข้อผิดพลาดในการสร้าง PDF: ${e.message}`
+    };
+  }
+}
+
+
+============================================================
+B. แทนที่ replacePlaceholderWithImage() เดิม และเพิ่ม Helpers เหล่านี้
+============================================================
+
+function escapeRegExp_(text) {
+  return String(text).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');
+}
+
+/**
+ * Resolve an image source from:
+ * - Google Drive URL containing ?id=FILE_ID
+ * - plain Google Drive file ID
+ * - data:image/...;base64,...
+ * - Supabase/public/signed HTTPS image URL
+ */
+function getImageBlobFromSource_(source, fileName) {
+  if (!source) return null;
+  const value = String(source).trim();
+  if (!value) return null;
+
+  // data URI
+  if (/^data:image\\//i.test(value)) {
+    const match = value.match(/^data:([^;]+);base64,(.+)$/i);
+    if (!match) throw new Error('รูปแบบ data:image ไม่ถูกต้อง');
+    const bytes = Utilities.base64Decode(match[2]);
+    return Utilities.newBlob(bytes, match[1], fileName || 'image');
+  }
+
+  // Google Drive URL: ?id=FILE_ID or &id=FILE_ID
+  const driveIdMatch = value.match(/[?&]id=([a-zA-Z0-9_-]{10,})/);
+  if (driveIdMatch) {
+    return DriveApp.getFileById(driveIdMatch[1]).getBlob();
+  }
+
+  // Plain Drive file ID
+  if (/^[a-zA-Z0-9_-]{20,}$/.test(value)) {
+    try {
+      return DriveApp.getFileById(value).getBlob();
+    } catch (_) {
+      // Not a Drive ID; continue to HTTPS handling.
+    }
+  }
+
+  // Supabase Storage / any HTTPS image URL.
+  if (/^https?:\\/\\//i.test(value)) {
+    const response = UrlFetchApp.fetch(value, {
+      method: 'get',
+      muteHttpExceptions: true,
+      followRedirects: true
+    });
+
+    const code = response.getResponseCode();
+    if (code < 200 || code >= 300) {
+      throw new Error(`โหลดรูปไม่สำเร็จ HTTP ${code}: ${value}`);
+    }
+
+    const blob = response.getBlob();
+    const contentType = String(blob.getContentType() || '').toLowerCase();
+    if (!contentType.startsWith('image/')) {
+      throw new Error(`URL ไม่ได้ส่งไฟล์รูปภาพกลับมา (${contentType || 'unknown'})`);
+    }
+    return blob.setName(fileName || 'image');
+  }
+
+  throw new Error('ไม่รู้จักแหล่งรูปภาพ: ' + value.substring(0, 120));
+}
+
+function replacePlaceholderWithImage(body, placeholder, fileId, width) {
+  try {
+    const blob = DriveApp.getFileById(fileId).getBlob();
+    replacePlaceholderWithImageBlob(body, placeholder, blob, width);
+  } catch (e) {
+    Logger.log(`Could not replace image for placeholder ${placeholder}: ${e.toString()}`);
+    body.replaceText(escapeRegExp_(placeholder), ' ');
+  }
+}
+
+function replacePlaceholderWithImageBlob(body, placeholder, blob, width) {
+  try {
+    const searchResult = body.findText(escapeRegExp_(placeholder));
+    if (!searchResult) {
+      Logger.log(`Image placeholder not found: ${placeholder}`);
+      return false;
+    }
+
+    const element = searchResult.getElement();
+    const parent = element.getParent();
+    const paragraph = parent.asParagraph();
+
+    paragraph.clear();
+    const image = paragraph.insertInlineImage(0, blob);
+
+    const originalWidth = image.getWidth();
+    const originalHeight = image.getHeight();
+    const aspectRatio = originalWidth > 0 ? originalHeight / originalWidth : 1;
+
+    image.setWidth(width);
+    image.setHeight(Math.max(1, Math.round(width * aspectRatio)));
+    return true;
+  } catch (e) {
+    Logger.log(`Could not insert image for placeholder ${placeholder}: ${e.toString()}`);
+    body.replaceText(escapeRegExp_(placeholder), ' ');
+    return false;
+  }
+}
+
+
+============================================================
+C. ตรวจสอบ generateIMCCoverPdf()
+============================================================
+
+ใน code.gs ปัจจุบันของ repo มี IMC_COVER_TEMPLATE_ID ถูกต้องแล้ว และฟังก์ชันนี้ต้องลงท้ายด้วย:
+
+return generatePdfAsBase64(IMC_COVER_TEMPLATE_ID, patient, "IMC-Cover");
+
+ห้ามเปลี่ยนกลับไปใช้ DOC_TEMPLATE_ID เพราะ DOC_TEMPLATE_ID คือ template เก่า
+
+
+============================================================
+D. สำคัญ: ไม่ต้องสร้าง GAS Project ใหม่
+============================================================
+
+ให้แก้ใน Google Apps Script Project เดิมที่ใช้กับ Bridge URL เดิม
+หลังวาง Code.gs แล้ว:
+
+1. Save project
+2. Deploy > Manage deployments
+3. แก้ deployment เดิมเป็น New version
+4. Execute as: Me
+5. Who has access: ให้คงค่าเดิมที่ระบบใช้งานอยู่
+6. Deploy
+
+ไม่จำเป็นต้องสร้าง Web App ใหม่ หาก deployment เดิมยังใช้ URL เดิม
+
+หมายเหตุ: การแก้ไฟล์ใน GitHub ไม่ได้แก้ deployment ของ Google Apps Script โดยอัตโนมัติ
+ดังนั้นต้องวางโค้ดชุดนี้ใน Apps Script Project เดิมและ Deploy version ใหม่ 1 ครั้ง
