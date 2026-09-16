@@ -55,7 +55,14 @@
     data.AdmitDate = thaiDate(p.AdmitDate);
     data.DischargeDate = thaiDate(p.DischargeDate);
     data.DueDate = thaiDate(p.DueDate);
-    data.Address = p.FullAddress || [p.HouseNumber && `บ้านเลขที่ ${p.HouseNumber}`, p.Moo && `หมู่ ${p.Moo)}`, p.Tambon && `ต.${p.Tambon}`, p.Amphoe && `อ.${p.Amphoe}`, p.Province && `จ.${p.Province}`, p.PostalCode].filter(Boolean).join(' ');
+    data.Address = p.FullAddress || [
+      p.HouseNumber && `บ้านเลขที่ ${p.HouseNumber}`,
+      p.Moo && `หมู่ ${p.Moo}`,
+      p.Tambon && `ต.${p.Tambon}`,
+      p.Amphoe && `อ.${p.Amphoe}`,
+      p.Province && `จ.${p.Province}`,
+      p.PostalCode
+    ].filter(Boolean).join(' ');
     data['Caregiver Relationship'] = p.CaregiverRelationship || '';
     data['ชื่อผู้ป่วย'] = p.PatientName || '';
 
