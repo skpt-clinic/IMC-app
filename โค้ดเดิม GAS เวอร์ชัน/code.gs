@@ -7,6 +7,7 @@ const BI_TEMPLATE_ID = '19dcvgpwgFUbJFeDNRXSSYC_O0oIQg8G9_xtfbI5xgKI';
 const OPD_TEMPLATE_ID = '1L7QGkwA-8KiMjHVmQjCqE3rWZ2hlxWuJ_CkgReqlAWs';
 const CONSENT_TEMPLATE_ID = '1mXw6MdoAzI0NMdZ2o51jlrGhe3i3uGQm5i8vCZ7Z4Z0';
 const SOAP_TEMPLATE_ID = '1q_DBudqfmr_C8eiPjz5WdXb4QTdKrT6RPf-uJQYkxKU';
+const IMC_COVER_TEMPLATE_ID = '1cImx394ZD2zh-H6Szn8G_ED46MlvfF3wvp9D5oaze3s';
 
 const PHOTO_FOLDER_ID = '10gWEXaEEDx3R0F8tSB67mOfr_3-nG4c8'; 
 const BODY_CHART_IMAGE_ID = '15GkXRz3FQeKoASYfXQEtS__lq1ax44iI';
@@ -1454,7 +1455,7 @@ function generateIMCCoverPdf(patientId) {
   
   // --- END: ส่วนที่แก้ไข ---
 
-  return generatePdfAsBase64(DOC_TEMPLATE_ID, patient, "IMC-Cover");
+  return generatePdfAsBase64(IMC_COVER_TEMPLATE_ID, patient, "IMC-Cover");
 }
 
 /**
