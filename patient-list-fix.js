@@ -2,6 +2,7 @@
 // PATIENT LIST IMPROVEMENTS
 // - Add Plan column after Next Appointment (latest SOAP visit Plan)
 // - Disable appointment actions when registered DueDate has been reached
+// - Mark patients whose DueDate is today or earlier in red with a warning icon
 // ============================================================================
 (function () {
   'use strict';
@@ -16,6 +17,11 @@
       const raw = value.trim();
       const m = raw.match(/^(\d{4}-\d{2}-\d{2})/);
       if (m) return m[1];
+      const thai = raw.match(/^(\d{1,2})[\\/-](\d{1,2})[\\/-](\d{4})$/);
+      if (thai) {
+        const year = Number(thai[3]) > 2400 ? Number(thai[3]) - 543 : Number(thai[3]);
+        return `${year}-${String(thai[2]).padStart(2, '0')}-${String(thai[1]).padStart(2, '0')}`;
+      }
     }
     const d = new Date(value);
     if (isNaN(d.getTime())) return '';
@@ -116,6 +122,55 @@
     return allPatients.find(p => String(p.ClinicNumber || '').trim() === cn) || null;
   }
 
+  function markDuePatients() {
+    const tbody = document.getElementById('patient-table-body');
+    if (!tbody) return;
+
+    tbody.querySelectorAll('tr').forEach(row => {
+      const patient = findPatientForRow(row);
+      if (!patient) return;
+
+      const warningClass = 'imc-due-warning-icon';
+      const existing = row.querySelector(`.${warningClass}`);
+      const dueReached = isDueReached(patient);
+
+      if (!dueReached) {
+        if (existing) existing.remove();
+        row.classList.remove('imc-due-patient');
+        return;
+      }
+
+      row.classList.add('imc-due-patient');
+      row.style.setProperty('color', '#dc2626', 'important');
+      row.querySelectorAll('*').forEach(el => {
+        // Keep warning icon styling under our control; all normal row text becomes red.
+        if (!el.classList.contains(warningClass)) {
+          el.style.setProperty('color', '#dc2626', 'important');
+        }
+      });
+
+      if (existing) return;
+
+      const cells = Array.from(row.children);
+      let nameCell = null;
+      const patientName = String(patient.PatientName || '').trim();
+      if (patientName) {
+        nameCell = cells.find(cell => String(cell.textContent || '').includes(patientName));
+      }
+      // Fallback: in the current registry the patient name is the second cell.
+      if (!nameCell) nameCell = cells[1] || cells[0];
+      if (!nameCell) return;
+
+      const icon = document.createElement('span');
+      icon.className = warningClass;
+      icon.setAttribute('title', 'ถึงวันครบกำหนด/เลยวันครบกำหนดแล้ว');
+      icon.setAttribute('aria-label', 'ถึงวันครบกำหนด');
+      icon.style.cssText = 'display:inline-block;margin-left:6px;font-weight:700;color:#dc2626 !important;';
+      icon.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i>';
+      nameCell.appendChild(icon);
+    });
+  }
+
   function updateAppointmentControls() {
     const tbody = document.getElementById('patient-table-body');
     if (!tbody || (typeof currentPatientTab !== 'undefined' && currentPatientTab !== 'Active')) return;
@@ -137,9 +192,9 @@
   }
 
   async function refreshPatientListEnhancements() {
-    if (typeof currentPatientTab !== 'undefined' && currentPatientTab !== 'Active') return;
     await loadLatestPlans();
     addPlanColumn();
+    markDuePatients();
     updateAppointmentControls();
   }
 
@@ -150,6 +205,7 @@
 
     const wrapped = function (list) {
       originalDisplayPatients(list);
+      markDuePatients();
       addPlanColumn();
       updateAppointmentControls();
       refreshPatientListEnhancements();
