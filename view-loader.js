@@ -84,6 +84,10 @@ async function loadAllPartials() {
       }
     }
 
+    // app.js is loaded immediately after this loader in index.html. Loading
+    // this hardening script only after the partials exist prevents helpers such
+    // as setupAllergyCheckboxes from running against a missing modal element.
+    await loadScriptOnce('ui-init-fix.js?v=20260917_1');
     window.dispatchEvent(new CustomEvent('imc-views-loaded'));
   } catch (error) {
     console.error('[IMC] View loading error:', error);
