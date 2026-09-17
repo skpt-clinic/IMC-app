@@ -19,10 +19,11 @@ const VIEWS = [
 // Load these once, before the view HTML is inserted. The document-print
 // adapter must be available before EMR/service views bind their print buttons.
 const EXTRA_SCRIPTS = [
-  'bridge-proxy.js?v=20260916_print4',
-  'gas-bridge-capture.js?v=20260916_print4',
-  'google-docs-template-adapter-v2.js?v=20260916_print4',
-  'google-docs-template-adapter-fix.js?v=20260916_print4'
+  'bridge-proxy.js?v=20260917_1',
+  'gas-bridge-capture.js?v=20260917_1',
+  'google-docs-template-adapter-v2.js?v=20260917_1',
+  'google-docs-template-adapter-fix.js?v=20260917_1',
+  'patient-list-fix.js?v=20260917_1'
 ];
 
 async function loadScriptOnce(src) {
