@@ -88,6 +88,18 @@ async function loadAllPartials() {
   }
 }
 
+// Navigation links use href="#" for styling/legacy compatibility while their
+// inline onclick handlers perform SPA navigation. Prevent the browser's default
+// anchor action from replacing the route hash with a bare "#" after the handler
+// sets the intended hash (e.g. #/patients, #/schedule, etc.).
+document.addEventListener('click', function (event) {
+  const link = event.target?.closest?.('.nav-link, .nav-link-mobile');
+  if (!link) return;
+  if (link.getAttribute('href') === '#') {
+    event.preventDefault();
+  }
+}, true);
+
 window.loadAllPartials = loadAllPartials;
 
 if (document.readyState === 'loading') {
