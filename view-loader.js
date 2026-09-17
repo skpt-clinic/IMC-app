@@ -26,6 +26,8 @@ const EXTRA_SCRIPTS = [
   'address-dropdown-fix.js?v=20260917_1'
 ];
 
+let _loadAllPartialsPromise = null;
+
 async function loadScriptOnce(src) {
   const key = src.split('?')[0];
   if (document.querySelector(`script[data-view-loader-script="${key}"]`)) return;
@@ -65,33 +67,42 @@ function ensureViewContainers() {
   return { mainContent, modalContainer };
 }
 
-async function loadAllPartials() {
-  try {
-    for (const src of EXTRA_SCRIPTS) await loadScriptOnce(src);
+function loadAllPartials() {
+  if (_loadAllPartialsPromise) return _loadAllPartialsPromise;
 
-    const { mainContent, modalContainer } = ensureViewContainers();
-    if (mainContent.dataset.viewsLoaded === 'true') return;
-    mainContent.dataset.viewsLoaded = 'true';
+  _loadAllPartialsPromise = (async () => {
+    try {
+      for (const src of EXTRA_SCRIPTS) await loadScriptOnce(src);
 
-    for (const path of VIEWS) {
-      const response = await fetch(path, { cache: 'no-store' });
-      if (!response.ok) throw new Error(`Failed to load ${path}: ${response.status}`);
-      const html = await response.text();
-      if (path.includes('/modals/')) {
-        modalContainer.insertAdjacentHTML('beforeend', html);
-      } else {
-        mainContent.insertAdjacentHTML('beforeend', html);
+      const { mainContent, modalContainer } = ensureViewContainers();
+      if (mainContent.dataset.viewsLoaded === 'true') return;
+      mainContent.dataset.viewsLoaded = 'true';
+
+      for (const path of VIEWS) {
+        const response = await fetch(path, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Failed to load ${path}: ${response.status}`);
+        const html = await response.text();
+        if (path.includes('/modals/')) {
+          modalContainer.insertAdjacentHTML('beforeend', html);
+        } else {
+          mainContent.insertAdjacentHTML('beforeend', html);
+        }
       }
-    }
 
-    // app.js is loaded immediately after this loader in index.html. Loading
-    // this hardening script only after the partials exist prevents helpers such
-    // as setupAllergyCheckboxes from running against a missing modal element.
-    await loadScriptOnce('ui-init-fix.js?v=20260917_1');
-    window.dispatchEvent(new CustomEvent('imc-views-loaded'));
-  } catch (error) {
-    console.error('[IMC] View loading error:', error);
-  }
+      // app.js is loaded immediately after this loader in index.html. Loading
+      // this hardening script only after the partials exist prevents helpers such
+      // as setupAllergyCheckboxes from running against a missing modal element.
+      await loadScriptOnce('ui-init-fix.js?v=20260917_1');
+      window.dispatchEvent(new CustomEvent('imc-views-loaded'));
+    } catch (error) {
+      // Allow a later retry if loading failed.
+      _loadAllPartialsPromise = null;
+      console.error('[IMC] View loading error:', error);
+      throw error;
+    }
+  })();
+
+  return _loadAllPartialsPromise;
 }
 
 // Navigation links use href="#" for styling/legacy compatibility while their
