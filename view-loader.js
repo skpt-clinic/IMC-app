@@ -1,6 +1,6 @@
 // ============================================================================
 // View Loader
-// Loads the SPA partials and the client-side integrations required by IMC Plus.
+// Loads the SPA view partials and modal partials used by IMC Plus.
 // ============================================================================
 
 const VIEWS = [
@@ -16,14 +16,12 @@ const VIEWS = [
   'views/modals/modal-download.html'
 ];
 
-// Load these once, before the view HTML is inserted. The document-print
-// adapter must be available before EMR/service views bind their print buttons.
 const EXTRA_SCRIPTS = [
-  'bridge-proxy.js?v=20260917_1',
-  'gas-bridge-capture.js?v=20260917_1',
-  'google-docs-template-adapter-v2.js?v=20260917_1',
-  'google-docs-template-adapter-fix.js?v=20260917_1',
-  'patient-list-fix.js?v=20260917_1'
+  'bridge-proxy.js?v=20260917_2',
+  'gas-bridge-capture.js?v=20260917_2',
+  'google-docs-template-adapter-v2.js?v=20260917_2',
+  'google-docs-template-adapter-fix.js?v=20260917_2',
+  'patient-list-fix.js?v=20260917_2'
 ];
 
 async function loadScriptOnce(src) {
@@ -40,17 +38,48 @@ async function loadScriptOnce(src) {
   });
 }
 
+function ensureViewContainers() {
+  const mainApp = document.getElementById('main-app');
+  if (!mainApp) throw new Error('Required #main-app container is missing from index.html');
+
+  let mainContent = document.getElementById('main-content-scroll');
+  if (!mainContent) {
+    mainContent = document.getElementById('views-container');
+  }
+  if (!mainContent) {
+    mainContent = document.createElement('main');
+    mainContent.id = 'main-content-scroll';
+    mainContent.className = 'flex-1 overflow-x-hidden overflow-y-auto bg-slate-50 p-4 md:p-6';
+    mainApp.querySelector('.flex-1.flex.flex-col')?.appendChild(mainContent) || mainApp.appendChild(mainContent);
+  }
+
+  let modalContainer = document.getElementById('modals-container');
+  if (!modalContainer) {
+    modalContainer = document.createElement('div');
+    modalContainer.id = 'modals-container';
+    document.body.appendChild(modalContainer);
+  }
+
+  return { mainContent, modalContainer };
+}
+
 async function loadAllPartials() {
   try {
     for (const src of EXTRA_SCRIPTS) await loadScriptOnce(src);
 
-    const container = document.getElementById('views-container');
-    if (!container) return;
+    const { mainContent, modalContainer } = ensureViewContainers();
+    if (mainContent.dataset.viewsLoaded === 'true') return;
+    mainContent.dataset.viewsLoaded = 'true';
 
     for (const path of VIEWS) {
-      const response = await fetch(path);
+      const response = await fetch(path, { cache: 'no-store' });
       if (!response.ok) throw new Error(`Failed to load ${path}: ${response.status}`);
-      container.insertAdjacentHTML('beforeend', await response.text());
+      const html = await response.text();
+      if (path.includes('/modals/')) {
+        modalContainer.insertAdjacentHTML('beforeend', html);
+      } else {
+        mainContent.insertAdjacentHTML('beforeend', html);
+      }
     }
 
     window.dispatchEvent(new CustomEvent('imc-views-loaded'));
@@ -58,6 +87,8 @@ async function loadAllPartials() {
     console.error('[IMC] View loading error:', error);
   }
 }
+
+window.loadAllPartials = loadAllPartials;
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', loadAllPartials, { once: true });
