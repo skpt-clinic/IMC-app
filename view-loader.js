@@ -22,7 +22,8 @@ const EXTRA_SCRIPTS = [
   'google-docs-template-adapter-v2.js?v=20260917_2',
   'google-docs-template-adapter-fix.js?v=20260917_2',
   'patient-list-fix.js?v=20260917_2',
-  'dashboard-status-fix.js?v=20260917_1'
+  'dashboard-status-fix.js?v=20260917_1',
+  'address-dropdown-fix.js?v=20260917_1'
 ];
 
 async function loadScriptOnce(src) {
