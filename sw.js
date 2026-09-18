@@ -1,4 +1,4 @@
-const CACHE_NAME = 'skpt-imc-plus-v25';
+const CACHE_NAME = 'skpt-imc-plus-v26';
 const APP_SHELL = [
   './',
   './index.html',
@@ -31,7 +31,9 @@ const APP_SHELL = [
   './views/modals/modal-patient.html',
   './views/modals/modal-schedule.html',
   './views/modals/modal-download.html',
-  ,'clinical-print-engine.js'\n];
+  './clinical-print-engine.js',
+  './print-templates-8-forms.pdf',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
