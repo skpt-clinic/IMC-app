@@ -1126,8 +1126,8 @@
         const record = { ...data };
         if (!record.PatientID) throw new Error('ไม่พบ PatientID');
         if (!record.RecordID) { record.RecordID = 'TMSE' + Date.now(); record.Timestamp = new Date().toISOString(); }
-        const res = record.__isUpdate || record.RecordID ? await client.from('TMSE_Records').upsert(record, { onConflict: 'RecordID' }) : await client.from('TMSE_Records').insert([record]);
-        if (res.error) throw res.error;
+        const res = await client.from('TMSE_Records').select('RecordID').eq('RecordID', record.RecordID).limit(1);\n        if (res.error) throw res.error;\n        const write = res.data && res.data.length ? await client.from('TMSE_Records').update(record).eq('RecordID', record.RecordID) : await client.from('TMSE_Records').insert([record]);
+        if (write.error) throw write.error;
         return { status: 'success', message: 'บันทึก TMSE สำเร็จ', recordId: record.RecordID };
       } catch (e) { return { status: 'error', message: e.message }; }
     },
@@ -1144,8 +1144,10 @@
         const record = { ...data };
         if (!record.PatientID) throw new Error('ไม่พบ PatientID');
         if (!record.RecordID) { record.RecordID = 'MHQ' + Date.now(); record.Timestamp = new Date().toISOString(); }
-        const res = await client.from('MHQ_Records').upsert(record, { onConflict: 'RecordID' });
-        if (res.error) throw res.error;
+        const existing = await client.from('MHQ_Records').select('RecordID').eq('RecordID', record.RecordID).limit(1);
+        if (existing.error) throw existing.error;
+        const write = existing.data && existing.data.length ? await client.from('MHQ_Records').update(record).eq('RecordID', record.RecordID) : await client.from('MHQ_Records').insert([record]);
+        if (write.error) throw write.error;
         return { status: 'success', message: 'บันทึก MHQ สำเร็จ', recordId: record.RecordID };
       } catch (e) { return { status: 'error', message: e.message }; }
     },
@@ -1162,8 +1164,10 @@
         const record = { ...data };
         if (!record.PatientID) throw new Error('ไม่พบ PatientID');
         if (!record.RecordID) { record.RecordID = 'DYS' + Date.now(); record.Timestamp = new Date().toISOString(); }
-        const res = await client.from('Dysphagia_Records').upsert(record, { onConflict: 'RecordID' });
-        if (res.error) throw res.error;
+        const existing = await client.from('Dysphagia_Records').select('RecordID').eq('RecordID', record.RecordID).limit(1);
+        if (existing.error) throw existing.error;
+        const write = existing.data && existing.data.length ? await client.from('Dysphagia_Records').update(record).eq('RecordID', record.RecordID) : await client.from('Dysphagia_Records').insert([record]);
+        if (write.error) throw write.error;
         return { status: 'success', message: 'บันทึก Dysphagia สำเร็จ', recordId: record.RecordID };
       } catch (e) { return { status: 'error', message: e.message }; }
     },
