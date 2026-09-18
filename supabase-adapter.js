@@ -905,9 +905,8 @@
               ScheduleID: `SCH${Date.now()}${idx + 1}`,
               PatientID: patientId,
               VisitNumber: idx + 1,
-              ScheduledDate: new Date(dateStr).toISOString(),
-              Status: 'Scheduled',
-              Notes: ''
+              ScheduledDate: new Date(dateStr + 'T00:00:00+07:00').toISOString(),
+              Status: 'Scheduled'
             });
           }
         });
