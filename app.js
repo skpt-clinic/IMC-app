@@ -2,7 +2,7 @@
 // 1. GLOBAL STATE & CONFIGURATION
 // =================================================================
 Chart.register(ChartDataLabels);
-let allPatients = [], nextCN = "", clinicSettings = {}, allTherapists = [], allAddressData = [], currentPatient = null, allScheduleData = [];
+let allPatients = [], nextCN = "", clinicSettings = {}, allTherapists = [], allAddressData = [], currentPatient = null, allScheduleData = [], therapistLicenseMap = {};
 let currentPatientRecords = null, currentDetailVisitDate = '';
 let loggedInUser = null;
 let patientModal, scheduleModal;
