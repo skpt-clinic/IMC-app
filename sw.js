@@ -1,4 +1,4 @@
-const CACHE_NAME = 'skpt-imc-plus-v17';
+const CACHE_NAME = 'skpt-imc-plus-v18';
 const APP_SHELL = [
   './',
   './index.html',
