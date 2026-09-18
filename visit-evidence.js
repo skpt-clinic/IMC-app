@@ -16,7 +16,15 @@
     const name = type === 'OPD' ? 'RecordID' : 'SOAPNoteID';
     return form?.querySelector(`[name="${name}"]`)?.value?.trim() || '';
   }
-  function getPatientId() { return String(window.currentPatient?.PatientID || '').trim(); }
+  function getPatientId(form) {
+    const fromForm = form?.querySelector('[name="PatientID"]')?.value?.trim() || '';
+    if (fromForm) return fromForm;
+    if (typeof window.getCurrentPatientIdForEvidence === 'function') {
+      const id = String(window.getCurrentPatientIdForEvidence() || '').trim();
+      if (id) return id;
+    }
+    return String(window.currentPatient?.PatientID || '').trim();
+  }
 
   function injectUI(form, type) {
     if (!form) return;
@@ -128,7 +136,7 @@
 
   async function runSubmit(type, original, callback) {
     const form = getForm(type); if (!form) return original(callback);
-    const patientId = getPatientId(); if (!patientId) return showError({ message: 'ไม่พบรหัสผู้ป่วยสำหรับแนบภาพหลักฐาน' });
+    const patientId = getPatientId(form); if (!patientId) return showError({ message: 'ไม่พบรหัสผู้ป่วยสำหรับแนบภาพหลักฐาน' });
     const existingId = getId(type, form); const recordId = ensureRecordId(type, form);
     if (!existingId && state[type].length === 0) return Swal.fire({ icon: 'warning', title: 'ต้องแนบภาพหลักฐาน', text: 'กรุณาถ่ายภาพหลักฐานการเยี่ยมอย่างน้อย 1 ภาพก่อนบันทึก Visit นี้', confirmButtonText: 'รับทราบ' });
     let uploaded = [];
