@@ -3275,7 +3275,20 @@ function createServiceTypeHtml() {
                     <span class="form-check-label">ผู้ป่วยนอก - เข้ารับบริการที่คลินิก</span>
                 </label>
             </div>
-        </fieldset>`;
+        </fieldset>
+        <div class="mt-3 p-3 border rounded bg-white" data-geo-section>
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <span class="fw-bold">📍 พิกัดประทับเวลา</span>
+                <span class="text-muted small">บันทึกเมื่อกดปุ่มเท่านั้น</span>
+            </div>
+            <button type="button" class="btn btn-outline-primary" data-geo-capture-button>📍 บันทึกพิกัดประทับเวลา</button>
+            <div class="mt-2 p-2 rounded bg-light border" data-geo-result>ยังไม่ได้บันทึกพิกัด</div>
+            <input type="hidden" name="GeoLatitude" value="">
+            <input type="hidden" name="GeoLongitude" value="">
+            <input type="hidden" name="GeoAddress" value="">
+            <input type="hidden" name="GeoLocationTimestamp" value="">
+            <input type="hidden" name="GeoTimestamp" value="">
+        </div>`;
 }
 
 function syncServiceTypeSelection(changedInput, otherName) {
