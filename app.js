@@ -2198,7 +2198,7 @@ function searchServicePatient(event, force = false) {
         resultsContainer.classList.remove('hidden'); 
         
         resultsContainer.innerHTML = filtered.map(p => 
-            `<a href="#" class="list-group-item list-group-item-action border-bottom" onclick="selectPatientForService('${p.PatientID}')">
+            `<a href="#" class="list-group-item list-group-item-action border-bottom" onclick="event.preventDefault(); event.stopPropagation(); selectPatientForService('${p.PatientID}'); return false;">
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <div class="fw-bold text-teal-700">${p.PatientName}</div>
