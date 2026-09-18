@@ -5055,3 +5055,112 @@ function onSaveSuccess() {
         });
     }).getInitialData();
 }
+
+
+function createGrossMotorFunctionHtml() {
+    const functions = [
+        { key: 'MoveUp', label: 'Move Up' },
+        { key: 'MoveDown', label: 'Move Down' },
+        { key: 'MoveRight', label: 'Move Right' },
+        { key: 'MoveLeft', label: 'Move Left' },
+        { key: 'SubSideLying', label: 'Sub-side lying' },
+        { key: 'SideLyingSit', label: 'Side lying-sit' },
+        { key: 'SitStand', label: 'Sit-stand' }
+    ];
+    const grades = ['Independent', 'Continuous', 'Minimal', 'Moderate', 'Maximum', 'Dependent'];
+    return `
+        <div class="table-responsive">
+        <table class="table table-bordered table-sm text-center" style="font-size:0.82rem;">
+            <thead class="table-light">
+                <tr>
+                    <th class="text-start">Function</th>
+                    ${grades.map(g => `<th>${g}</th>`).join('')}
+                </tr>
+            </thead>
+            <tbody>
+                ${functions.map(fn => `
+                    <tr>
+                        <td class="text-start fw-semibold">${fn.label}</td>
+                        ${grades.map(g => `
+                            <td><input class="form-check-input" type="radio" name="GM_${fn.key}" value="${g}" id="gm_${fn.key}_${g}"></td>
+                        `).join('')}
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+        </div>`;
+}
+
+function createHandFunctionHtml() {
+    const functions = [
+        { key: 'Reaching', label: 'Reaching' },
+        { key: 'GraspRelease', label: 'Grasp - Release' },
+        { key: 'PassObj', label: 'Pass objective hand-hand' },
+        { key: 'ThumbOpp', label: 'Thumb opposition' },
+        { key: 'PinchGrasp', label: 'Pinch grasp' }
+    ];
+    const grades = ['Zero', 'Poor', 'Fair', 'Good', 'Normal'];
+    return `
+        <div class="mb-2 p-2 bg-light rounded border border-slate-200" style="font-size: 0.85rem;">
+            <span class="fw-bold me-3">Hand Function Side:</span>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="HF_Side_Rt" value="Right" id="hf_side_rt_cb">
+                <label class="form-check-label" for="hf_side_rt_cb">Right (ขวา)</label>
+            </div>
+            <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" name="HF_Side_Lt" value="Left" id="hf_side_lt_cb">
+                <label class="form-check-label" for="hf_side_lt_cb">Left (ซ้าย)</label>
+            </div>
+        </div>
+        <div class="table-responsive">
+        <table class="table table-bordered table-sm text-center" style="font-size:0.82rem;">
+            <thead class="table-light">
+                <tr>
+                    <th class="text-start">Function</th>
+                    ${grades.map(g => `<th>${g}</th>`).join('')}
+                </tr>
+            </thead>
+            <tbody>
+                ${functions.map(fn => `
+                    <tr>
+                        <td class="text-start fw-semibold">${fn.label}</td>
+                        ${grades.map(g => `
+                            <td><input class="form-check-input" type="radio" name="HF_${fn.key}" value="${g}" id="hf_${fn.key}_${g}"></td>
+                        `).join('')}
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+        </div>`;
+}
+
+function createBalanceGridHtml() {
+    const assessments = [
+        { key: 'SitStatic', label: 'Sitting-static' },
+        { key: 'SitDynamic', label: 'Sitting-dynamic' },
+        { key: 'StandStatic', label: 'Stand-static' },
+        { key: 'StandDynamic', label: 'Stand-dynamic' }
+    ];
+    const grades = ['Zero', 'Poor', 'Fair', 'Good', 'Normal'];
+    return `
+        <div class="table-responsive">
+        <table class="table table-bordered table-sm text-center" style="font-size:0.82rem;">
+            <thead class="table-light">
+                <tr>
+                    <th class="text-start">Assessment</th>
+                    ${grades.map(g => `<th>${g}</th>`).join('')}
+                </tr>
+            </thead>
+            <tbody>
+                ${assessments.map(a => `
+                    <tr>
+                        <td class="text-start fw-semibold">${a.label}</td>
+                        ${grades.map(g => `
+                            <td><input class="form-check-input" type="radio" name="Bal_${a.key}" value="${g}" id="bal_${a.key}_${g}"></td>
+                        `).join('')}
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+        </div>`;
+}
