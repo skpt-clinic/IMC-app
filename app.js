@@ -2278,26 +2278,35 @@ function selectPatientForService(patientId, directToVisitNumber = null) {
             }
 
             // สร้างปุ่มกด (Buttons) - แสดงเสมอ!
-            let buttonsHtml = '';
-            if (nextVisit <= 1) { 
-                // ครั้งที่ 1: ชุดใหญ่
-                buttonsHtml = `
-                    <h4 class="w-full text-md font-semibold mb-2">บริการครั้งแรก:</h4>
-                    <button class="btn btn-outline-primary" onclick="showServiceSubView('Consent')">1. ใบยินยอม</button>
-                    <button class="btn btn-outline-primary" onclick="showServiceSubView('BI')">2. ประเมิน BI</button>
-                    <button class="btn btn-outline-primary" onclick="showServiceSubView('OPD')">3. บันทึก OPD</button>
-                `;
-            } else { 
-                // ครั้งที่ 2+: SOAP
-                buttonsHtml = `
-                    <h4 class="w-full text-md font-semibold mb-2">บริการครั้งที่ ${nextVisit}:</h4>
-                    <button class="btn btn-success" onclick="showServiceSubView('SOAP')">
-                        <i class="bi bi-file-earmark-medical-fill mr-2"></i> บันทึก SOAP Note
-                    </button>
-                `;
-            }
-
-            menuBar.innerHTML = alertHtml + buttonsHtml;
+                        let buttonsHtml = '';
+                        if (nextVisit <= 1) {
+                            buttonsHtml = `
+                                <h4 class="w-full text-md font-semibold mb-2">บริการครั้งแรก:</h4>
+                                <button class="btn btn-outline-primary" onclick="showServiceSubView('Consent')">1. ใบยินยอม</button>
+                                <button class="btn btn-outline-primary" onclick="showServiceSubView('BI')">2. ประเมิน BI</button>
+                                <button class="btn btn-outline-primary" onclick="showServiceSubView('OPD')">3. บันทึก OPD</button>
+                            `;
+                        } else {
+                            buttonsHtml = `
+                                <h4 class="w-full text-md font-semibold mb-2">บริการครั้งที่ ${nextVisit}:</h4>
+                                <button class="btn btn-success" onclick="showServiceSubView('SOAP')">
+                                    <i class="bi bi-file-earmark-medical-fill mr-2"></i> บันทึก SOAP Note
+                                </button>
+                            `;
+                        }
+            
+                        // เอกสารประเมินเพิ่มเติม: มีให้เลือกทุกครั้ง และไม่บังคับบันทึก
+                        buttonsHtml += `
+                            <div class="w-full mt-3 pt-3 border-top">
+                                <div class="text-sm fw-semibold mb-2">เอกสารประเมินเพิ่มเติม (ไม่บังคับบันทึก)</div>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <button class="btn btn-outline-secondary" onclick="showServiceSubView('TMSE')"><i class="bi bi-journal-text mr-1"></i> TMSE</button>
+                                    <button class="btn btn-outline-secondary" onclick="showServiceSubView('MHQ')"><i class="bi bi-heart-pulse mr-1"></i> MHQ</button>
+                                    <button class="btn btn-outline-secondary" onclick="showServiceSubView('Dysphagia')"><i class="bi bi-droplet-half mr-1"></i> Dysphagia</button>
+                                </div>
+                            </div>`;
+            
+                        menuBar.innerHTML = alertHtml + buttonsHtml;
         })
         .withFailureHandler(showError)
         .getNextVisitCount(pIdStr);
