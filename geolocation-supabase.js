@@ -133,20 +133,4 @@
     }
   });
 
-  // Make pending GPS data available to existing OPD/SOAP save payloads.
-  function patchBuilders() {
-    ['getOpdFormData','getSOAPFormData','getSoapFormData'].forEach(name => {
-      if (typeof window[name] !== 'function' || window[name].__geoPatched) return;
-      const original = window[name];
-      const wrapped = function () {
-        const data = original.apply(this, arguments) || {};
-        const geo = this?.__pendingGeo || pendingGeo;
-        if (geo) Object.assign(data, geo);
-        return data;
-      };
-      wrapped.__geoPatched = true;
-      window[name] = wrapped;
-    });
-  }
-  setInterval(patchBuilders, 500);
-})();
+  // OPD and SOAP collect the hidden geolocation fields directly from their forms.\n})();\n
