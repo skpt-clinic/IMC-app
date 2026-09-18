@@ -84,53 +84,84 @@
     return pendingGeo;
   }
 
-  function setGeoFields(form, geo) {
+  function setGeoFields(form, geo, formType) {
     if (!form || !geo) return;
     form.__pendingGeo = geo;
     GEO_FIELDS.forEach(k => {
       const input = form.querySelector('[name="' + k + '"]');
       if (input) input.value = geo[k] ?? '';
     });
+
+    // Support both the original GAS markup and the newer delegated markup.
+    const prefix = formType === 'soap' ? 'soap' : '';
+    const display = document.getElementById(prefix ? 'soapGeoLocationDisplay' : 'geoLocationDisplay');
+    if (display) {
+      display.value = geo.GeoLocationTimestamp || '';
+      display.textContent = geo.GeoLocationTimestamp || '';
+      display.style.color = '#166534';
+    }
+
     const result = form.querySelector('[data-geo-result]');
     if (result) {
-      result.textContent = geo.GeoLocationTimestamp;
+      result.textContent = geo.GeoLocationTimestamp || '';
       result.style.color = '#166534';
     }
+
     const button = form.querySelector('[data-geo-capture-button]');
     if (button) {
       button.textContent = '✓ บันทึกพิกัดแล้ว (กดใหม่เพื่ออัปเดต)';
     }
   }
 
-  // The button is rendered immediately after the Service Type block by app.js.
-  // GPS is requested only from this explicit click.
-  document.addEventListener('click', async function (event) {
-    const button = event.target.closest('[data-geo-capture-button]');
-    if (!button) return;
+  // Original GAS forms call captureGeoLocation('opd'|'soap') directly from the button.
+  // Keep that exact UI contract while using Supabase/browser geolocation underneath.
+  window.captureGeoLocation = async function (formType) {
+    const form = document.getElementById(formType === 'soap' ? 'soap-note-form' : 'opd-form');
+    if (!form) {
+      if (window.Swal) Swal.fire('แจ้งเตือน', 'ไม่พบฟอร์มสำหรับบันทึกพิกัด', 'warning');
+      return;
+    }
 
-    const form = button.closest('form');
-    if (!form) return;
+    const prefix = formType === 'soap' ? 'soap' : '';
+    const button = form.querySelector('button[onclick*="captureGeoLocation"]') || form.querySelector('[data-geo-capture-button]');
+    const display = document.getElementById(prefix ? 'soapGeoLocationDisplay' : 'geoLocationDisplay');
 
-    button.disabled = true;
-    button.textContent = 'กำลังบันทึกพิกัด...';
-    const result = form.querySelector('[data-geo-result]');
-    if (result) {
-      result.textContent = 'กำลังขอพิกัดจากอุปกรณ์...';
-      result.style.color = '#374151';
+    if (button) {
+      button.disabled = true;
+      button.dataset.originalText = button.dataset.originalText || button.textContent;
+      button.textContent = 'กำลังบันทึกพิกัด...';
+    }
+    if (display) {
+      display.value = 'กำลังขอพิกัดจากอุปกรณ์...';
+      display.textContent = 'กำลังขอพิกัดจากอุปกรณ์...';
     }
 
     try {
       const geo = await captureLocation();
-      setGeoFields(form, geo);
+      setGeoFields(form, geo, formType);
     } catch (err) {
-      if (result) {
-        result.textContent = 'ไม่สามารถบันทึกพิกัดได้: ' + (err.message || err);
-        result.style.color = '#b91c1c';
+      if (display) {
+        display.value = 'ไม่สามารถบันทึกพิกัดได้: ' + (err.message || err);
+        display.textContent = 'ไม่สามารถบันทึกพิกัดได้: ' + (err.message || err);
       }
-      button.textContent = '📍 บันทึกพิกัดประทับเวลา';
+      if (window.Swal) Swal.fire('ไม่สามารถบันทึกพิกัด', err.message || String(err), 'error');
+      if (button) button.textContent = button.dataset.originalText || 'ลงพิกัดและเวลา';
     } finally {
-      button.disabled = false;
+      if (button) button.disabled = false;
     }
+  };
+
+  // Keep support for delegated buttons if any remain in older cached markup.
+  document.addEventListener('click', async function (event) {
+    const button = event.target.closest('[data-geo-capture-button]');
+    if (!button) return;
+    if (button.getAttribute('onclick')) return;
+
+    const form = button.closest('form');
+    if (!form) return;
+
+    const formType = form.id === 'soap-note-form' ? 'soap' : 'opd';
+    await window.captureGeoLocation(formType);
   });
 
   // OPD and SOAP collect the hidden geolocation fields directly from their forms.
