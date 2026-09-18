@@ -114,6 +114,12 @@
           allScheduleData = savedRows;
         }
 
+        // If the user is currently viewing the patient-detail schedule tab,
+        // redraw that tab immediately without requiring navigation away/back.
+        if (typeof window.refreshPatientScheduleTab === 'function') {
+          await window.refreshPatientScheduleTab();
+        }
+
         if (typeof scheduleModal !== 'undefined' && scheduleModal) scheduleModal.hide();
         Swal.close();
         showSuccessToast(`บันทึกนัดหมายสำเร็จ ${rows.length} ครั้ง`);
