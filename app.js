@@ -2554,7 +2554,7 @@ function openNewConsentForm() {
     initializeSignaturePad('consenterSignatureCanvas', 'consenter');
     initializeSignaturePad('witnessSignatureCanvas', 'witness');
     
-    document.querySelector('input[name="ConsentDate"]').valueAsDate = new Date();
+    document.querySelector('input[name="ConsentDate"]').value = toBangkokDateStr(new Date());
     google.script.run.withSuccessHandler(visitCount => {
         document.querySelector('input[name="VisitCount"]').value = visitCount;
     }).getNextVisitCount(currentPatient.PatientID);
@@ -2582,7 +2582,7 @@ function editConsentForm(consentId) {
                         const el = form.querySelector(`[name="${key}"]`);
                         if (el) {
                             if (el.type === 'date') {
-                                el.value = data[key] ? new Date(data[key]).toISOString().split('T')[0] : '';
+                                el.value = data[key] ? toBangkokDateStr(data[key]) : '';
                             } else if (el.type === 'radio') {
                                 const radioEl = form.querySelector(`input[name="${key}"][value="${data[key]}"]`);
                                 if(radioEl) radioEl.checked = true;
@@ -2704,7 +2704,7 @@ function openNewBIAssessmentForm() {
     formContainer.innerHTML = formHtml;
     formContainer.style.display = 'block';
 
-    document.querySelector('input[name="AssessmentDate"]').valueAsDate = new Date();
+    document.querySelector('input[name="AssessmentDate"]').value = toBangkokDateStr(new Date());
     google.script.run.withSuccessHandler(visitCount => { document.querySelector('input[name="VisitCount"]').value = visitCount; }).getNextVisitCount(currentPatient.PatientID);
 }
 function editBIAssessment(assessmentId) {
@@ -2724,7 +2724,7 @@ function editBIAssessment(assessmentId) {
                            el.checked = data[key] === true || data[key] === 'true';
                         }
                         else if (el.type === 'date') {
-                           el.value = data[key] ? data[key].split('T')[0] : '';
+                           el.value = data[key] ? toBangkokDateStr(data[key]) : '';
                         }
                         else {
                            el.value = data[key];
@@ -2866,7 +2866,7 @@ function openNewOpdForm() {
     setupOpdForm(); // สร้างโครงฟอร์ม
 
     // ตั้งค่าวันปัจจุบัน
-    document.querySelector('#opd-form input[name="VisitDate"]').valueAsDate = new Date();
+    document.querySelector('#opd-form input[name="VisitDate"]').value = toBangkokDateStr(new Date());
     populateCheckboxGroup('opd-diagnosis-container', 'Diagnosis', currentPatient.IMCDx || '');
     initializeOpdCanvases();
 
@@ -2906,7 +2906,7 @@ function setupOpdForm() {
     // (ย้ายมาจาก createOpdPhysicalExamHtml)
     createCheckboxGroup('opd-problemlist-container', 'ProblemList', ['Weakness', 'Poor balance', 'Poor ambulation', 'Abnormal m. length/tone', 'Risk of complication'], true);
     createCheckboxGroup('opd-goals-container', 'GoalsOfTreatment', ['Walking independent w/i 6 month', 'Walking with gait aids independent w/i 6 month', 'Trasfer by W/C independent w/i 6 month'], true);
-    createCheckboxGroup('opd-plan-container', 'PlanOfTreatment', ['F/U Program PT ต่อเนื่อง', 'OFF PT Program', 'ส่งต่อ รพ. ดูแลต่อเนื่อง']);
+    createCheckboxGroup('opd-plan-container', 'PlanOfTreatment', ['F/U Program PT ตามความเหมาะสม', 'OFF PT Program', 'ส่งต่อ รพ. ตามความเหมาะสม'], true);
     // --- END: สิ้นสุดการเพิ่ม ---
 
     document.querySelector('#opd-form input[name="PatientNameFull"]').value = currentPatient.PatientName;
@@ -2923,10 +2923,10 @@ function editOpdRecord(recordId) {
                 // 3. เติมข้อมูลที่เคยบันทึกไว้ลงในฟอร์ม
                 populateOpdForm(response.record);
                 initializeOpdCanvases(response.record); // โหลดรูปภาพและลายเซ็นที่เคยบันทึก
+                checkAndLoadTmse(response.record.PatientID, response.record.VisitCount);
                 Swal.close();
             } else {
                 showError(response);
-        
             }
         })
         .withFailureHandler(showError)
@@ -3044,10 +3044,15 @@ function createOpdFormHtml(isEdit = false) {
             <fieldset class="border p-3 rounded"><legend class="text-lg font-semibold float-none w-auto px-2">Plan of Treatment</legend><div id="opd-plan-container"></div></fieldset>
             <fieldset class="border p-3 rounded"><legend class="text-lg font-semibold float-none w-auto px-2">Signatures</legend>
                 <div class="row g-3">
-                    <div class="col-md-6"><label>ลายมือชื่อผู้ตรวจรักษา</label><canvas id="therapistSignatureCanvas" class="signature-pad"></canvas><div class="mt-1"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearCanvas('therapist')">ล้าง</button></div><select name="TherapistName" id="opdTherapistName" class="form-select form-select-sm mt-2"></select></div>
+                    <div class="col-md-6"><label>ลายมือชื่อผู้ตรวจรักษา</label><canvas id="therapistSignatureCanvas" class="signature-pad"></canvas><div class="mt-1"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearCanvas('therapist')">ล้าง</button></div><select name="TherapistName" id="opdTherapistName" class="form-select form-select-sm mt-2" onchange="fillTherapistLicense(this, 'opdTherapistLicense')"></select><input type="text" name="TherapistLicenseNo" id="opdTherapistLicense" class="form-control form-control-sm mt-2" placeholder="เลขที่ใบประกอบวิชาชีพ" readonly></div>
                     <div class="col-md-6"><label>ลายมือชื่อผู้รับบริการ/ญาติ</label><canvas id="patientSignatureCanvas" class="signature-pad"></canvas><div class="mt-1"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearCanvas('patient')">ล้าง</button></div><input type="text" name="PatientNameFull" class="form-control form-control-sm mt-2" placeholder="ชื่อ-สกุลเต็ม"></div>
                 </div>
             </fieldset>
+            <div class="form-check my-3 border p-3 bg-teal-50/50 rounded-xl border-teal-200/50">
+                <input class="form-check-input" type="checkbox" id="want_tmse" name="want_tmse" onchange="toggleTmseForm(this.checked)">
+                <label class="form-check-label fw-bold text-teal-800" for="want_tmse">ต้องการประเมิน TMSE ใน Visit นี้</label>
+            </div>
+            <div id="tmse_form_section" style="display:none;" class="border p-4 rounded-xl bg-white shadow-sm mt-3"></div>
             
             <div class="mt-4"><button type="button" class="btn btn-primary" onclick="handleOpdFormSubmit()">บันทึก OPD Card</button> <button type="button" class="btn btn-secondary" onclick="showHistory('OPD')">ยกเลิก</button></div>
         </form>`;
@@ -3056,7 +3061,7 @@ function createOpdFormHtml(isEdit = false) {
 function createOpdPhysicalExamHtml(containerId) {
     const container = document.getElementById(containerId);
 
-    // --- 1. ส่วนที่เพิ่มใหม่: Level of Consciousness ---
+    // --- 1. Level of Consciousness ---
     const locOptions = ['Alert', 'Drowsiness', 'Confuse', 'Stupor', 'Semi-coma', 'Coma'];
     const locHtml = `
         <div class="mb-4 pb-3 border-bottom">
@@ -3106,15 +3111,47 @@ function createOpdPhysicalExamHtml(containerId) {
                 <input type="text" name="EquipmentOther" class="form-control form-control-sm" placeholder="Other ระบุ...">
             </div>
         </div>
+        <div class="mb-4 pb-3 border-bottom">
+            <label class="form-label fw-bold d-block mb-2">Special Assessments</label>
+            <div class="d-flex flex-wrap gap-3 mb-2">
+                ${['MRI', 'CT-scan', 'X-ray'].map(opt => `
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="SpecialAssessmentOption" value="${opt}" id="sa_${opt.replace(/[^A-Za-z0-9]+/g, '')}" onchange="toggleSpecialAssessmentDetails()">
+                        <label class="form-check-label" for="sa_${opt.replace(/[^A-Za-z0-9]+/g, '')}">${opt}</label>
+                    </div>
+                `).join('')}
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="SpecialAssessmentOption" value="ASIA" id="sa_ASIA" onchange="toggleSpecialAssessmentDetails()">
+                    <label class="form-check-label" for="sa_ASIA">ASIA (American Spinal Injury Association)</label>
+                </div>
+            </div>
+            <div class="mt-2">
+                <label class="form-label small">รายละเอียด / อื่นๆ ระบุ</label>
+                <input type="text" name="SpecialAssessment_Details" class="form-control form-control-sm" placeholder="ระบุรายละเอียดเพิ่มเติม...">
+            </div>
+            <div id="sa_asia_details" class="mt-2 ps-3 border-start border-2" style="display:none; border-color:#0d9488 !important;">
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <label class="form-label small">NLI <span class="text-danger">*</span></label>
+                        <input type="text" name="SpecialAssessment_ASIA_NLI" class="form-control form-control-sm" placeholder="ระบุ NLI">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">AIS <span class="text-danger">*</span></label>
+                        <input type="text" name="SpecialAssessment_ASIA_AIS" class="form-control form-control-sm" placeholder="ระบุ AIS">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">ASIA Diagnosis <span class="text-danger">*</span></label>
+                        <input type="text" name="SpecialAssessment_ASIA_Diagnosis" class="form-control form-control-sm" placeholder="ระบุ ASIA Diagnosis">
+                    </div>
+                </div>
+            </div>
+        </div>
     `;
 
-    // --- 2. ส่วนเดิม: U/D Options ---
-    // (ส่วนนี้จะไปแสดงผลใน div id="opd-ud-container" ที่อยู่นอกเหนือ containerId หลัก แต่เรียกใช้ในฟังก์ชันนี้)
-    const udOptions = ['NO U/D', 'DM', 'HT', 'DLP', 'Old CVA', 'Heart Disease', 'AF on wafarin'];
-    createCheckboxGroup('opd-ud-container', 'UD', udOptions, true);
+    // --- 2. U/D Options ---
+    createCheckboxGroup('opd-ud-container', 'UD', ['NO U/D', 'DM', 'HT', 'DLP', 'Old CVA', 'Heart Disease', 'AF on wafarin'], true);
     
-    // --- 3. ส่วนเดิม: Fx.HIP Status Options ---
-    // (ส่วนนี้จะไปแสดงผลใน div id="opd-fxhip-container")
+    // --- 3. Fx.HIP Status ---
     const fxHipContainer = document.getElementById('opd-fxhip-container');
     if (fxHipContainer) {
         const fxHipOptions = ['NWB', 'PWB', 'FWB', 'W/C', 'Bed rest'];
@@ -3132,68 +3169,18 @@ function createOpdPhysicalExamHtml(containerId) {
         `;
     }
 
-    // --- 4. ส่วนเดิม: Bed Mobility HTML ---
-    const bedMobilityHtml = `
-        <div class="row g-3">
-            <div class="col-md-6">
-                <label class="form-label d-block">Independent</label>
-                <select name="BedMobility_Independent" class="form-select form-select-sm">
-                    <option value="">เลือก...</option>
-                    <option value="contract">contract</option>
-                    <option value="close">close</option>
-                    <option value="supervision">supervision</option>
-                </select>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label d-block">Dependent</label>
-                <select name="BedMobility_Dependent" class="form-select form-select-sm">
-                    <option value="">เลือก...</option>
-                    <option value="Minimal assisted">Minimal assisted</option>
-                    <option value="Moderate assisted">Moderate assisted</option>
-                    <option value="Maximum assisted">Maximum assisted</option>
-                </select>
-            </div>
-        </div>`;
-
-    // --- 5. ส่วนเดิม: Gross Motor HTML ---
-    const grossMotorHtml = `
-        <div class="row g-3">
-            <div class="col-md-6">
-                <label class="form-label d-block">Side lying to sitting</label>
-                <select name="GrossMotor_SideLying" class="form-select form-select-sm">
-                    <option value="">เลือก...</option>
-                    <option value="Poor">Poor</option>
-                    <option value="Fair">Fair</option>
-                    <option value="Good">Good</option>
-                    <option value="Normal">Normal</option>
-                </select>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label d-block">Sit to stand</label>
-                <select name="GrossMotor_SitToStand" class="form-select form-select-sm">
-                    <option value="">เลือก...</option>
-                    <option value="Poor">Poor</option>
-                    <option value="Fair">Fair</option>
-                    <option value="Good">Good</option>
-                    <option value="Normal">Normal</option>
-                </select>
-            </div>
-        </div>`;
-
-    // --- 6. ส่วนเดิม: Main PE Items List ---
+    // --- 4. PE Items List (Bed Mobility removed; Gross Motor Function + Hand Function new grids; Balance grid; CHEST-Other) ---
     const peItems = [
-        { id: 'BedMobility', label: 'Bed mobility', details: bedMobilityHtml },
-        { id: 'GrossMotor', label: 'Gross motor', details: grossMotorHtml },
+        { id: 'GrossMotorFunction', label: 'Gross motor function', details: createGrossMotorFunctionHtml() },
+        { id: 'HandFunction', label: 'Hand function', details: createHandFunctionHtml() },
         { id: 'GaitAnalysis', label: 'Gait analysis', details: createGaitAnalysisHtml() },
         { id: 'QualityMovement', label: 'Quality of movement', details: createQualityMovementHtml() },
         { id: 'JointPropio', label: 'Joint propioception / Sensation', details: createJointPropioHtml() },
-        { id: 'Balance', label: 'Balance', details: createBalanceHtml() },
+        { id: 'Balance', label: 'Balance', details: createBalanceGridHtml() },
         { id: 'PROM', label: 'PROM / Length / Tone', details: createPromLengthToneHtml() },
-        { id: 'Other', label: 'Other', details: createDetailInputHtml('OtherPhysical') }
+        { id: 'ChestOther', label: 'CHEST - Other', details: createDetailInputHtml('OtherPhysical') }
     ];
 
-    // --- 7. รวม HTML และแสดงผล ---
-    // นำ locHtml มาต่อด้านหน้า peItems
     container.innerHTML = locHtml + peItems.map(item => `
         <div>
             <div class="form-check">
@@ -3270,7 +3257,15 @@ function createDetailInputHtml(name) {
     return `<textarea name="${name}" class="form-control form-control-sm" rows="2"></textarea>`;
 }
 
-function createServiceTypeHtml() {
+function createServiceTypeHtml(formType = 'opd') {
+    const isSoap = (formType === 'soap');
+    const prefix = isSoap ? 'soap' : '';
+    const displayId = prefix ? 'soapGeoLocationDisplay' : 'geoLocationDisplay';
+    const latId = prefix ? 'soapGeoLatInput' : 'geoLatInput';
+    const lngId = prefix ? 'soapGeoLngInput' : 'geoLngInput';
+    const addressId = prefix ? 'soapGeoAddressInput' : 'geoAddressInput';
+    const timestampId = prefix ? 'soapGeoTimestampInput' : 'geoTimestampInput';
+
     return `
         <fieldset class="border p-3 rounded bg-slate-50">
             <legend class="text-lg font-semibold float-none w-auto px-2">ประเภทการให้บริการ</legend>
@@ -3285,19 +3280,21 @@ function createServiceTypeHtml() {
                 </label>
             </div>
         </fieldset>
-        <div class="mt-3 p-3 border rounded bg-white" data-geo-section>
-            <div class="d-flex align-items-center gap-2 mb-2">
-                <span class="fw-bold">📍 พิกัดประทับเวลา</span>
-                <span class="text-muted small">บันทึกเมื่อกดปุ่มเท่านั้น</span>
+        <fieldset class="border p-3 rounded bg-slate-50 mt-2">
+            <legend class="text-lg font-semibold float-none w-auto px-2">ลงพิกัด - ประทับเวลา</legend>
+            <div class="d-flex align-items-start gap-3 flex-wrap">
+                <button type="button" class="btn btn-primary btn-sm" onclick="captureGeoLocation('${formType}')">
+                    <i class="bi bi-geo-alt-fill me-1"></i>ลงพิกัดและเวลา
+                </button>
+                <div class="flex-fill">
+                    <textarea id="${displayId}" name="GeoLocationTimestamp" class="form-control form-control-sm" rows="3" readonly placeholder="กดปุ่ม 'ลงพิกัดและเวลา' เพื่อบันทึกตำแหน่งและเวลา" style="background:#f8f9fa;resize:none;"></textarea>
+                    <input type="hidden" name="GeoLatitude" id="${latId}">
+                    <input type="hidden" name="GeoLongitude" id="${lngId}">
+                    <input type="hidden" name="GeoAddress" id="${addressId}">
+                    <input type="hidden" name="GeoTimestamp" id="${timestampId}">
+                </div>
             </div>
-            <button type="button" class="btn btn-outline-primary" data-geo-capture-button>📍 บันทึกพิกัดประทับเวลา</button>
-            <div class="mt-2 p-2 rounded bg-light border" data-geo-result>ยังไม่ได้บันทึกพิกัด</div>
-            <input type="hidden" name="GeoLatitude" value="">
-            <input type="hidden" name="GeoLongitude" value="">
-            <input type="hidden" name="GeoAddress" value="">
-            <input type="hidden" name="GeoLocationTimestamp" value="">
-            <input type="hidden" name="GeoTimestamp" value="">
-        </div>`;
+        </fieldset>`;
 }
 
 function syncServiceTypeSelection(changedInput, otherName) {
@@ -3636,7 +3633,7 @@ function openNewSoapForm() {
             const vCount = (typeof data === 'object') ? data.visitCount : data;
 
             const form = document.getElementById('soap-note-form');
-            form.querySelector('input[name="VisitDate"]').valueAsDate = new Date();
+            form.querySelector('input[name="VisitDate"]').value = toBangkokDateStr(new Date());
             
             // [จุดแก้ไข] ใส่เลขครั้งที่อัตโนมัติ
             form.querySelector('input[name="VisitCount"]').value = vCount;
@@ -3650,19 +3647,46 @@ function editSoapNote(recordId) {
     showLoading('กำลังโหลดข้อมูล SOAP Note...');
     setupSoapForm(); // 1. สร้างโครงฟอร์มที่ว่างเปล่าก่อน
 
-    // 2. ดึงข้อมูล SOAP Note ที่ต้องการแก้ไขโดยใช้ ID
-    google.script.run.withSuccessHandler(res => {
-        if (res.status === 'success' && res.record) {
-            // 3. เติมข้อมูลที่เคยบันทึกไว้ทั้งหมดลงในฟอร์ม
-            populateSoapForm(res.record);
+    // 2. ดึงข้อมูล SOAP Note
+    google.script.run.withSuccessHandler(soapRes => {
+        if (soapRes.status === 'success' && soapRes.record) {
+            const soapRecord = soapRes.record;
+            populateSoapForm(soapRecord); // 3. เติมข้อมูล SOAP
+            loadCanvasImage('soapTherapistSignatureCanvas', soapRes.record.TherapistSignatureBase64);
+            loadCanvasImage('soapPatientSignatureCanvas', soapRes.record.PatientSignatureBase64);
 
-            // 4. โหลดลายเซ็นที่เคยบันทึกไว้
-            loadCanvasImage('soapTherapistSignatureCanvas', res.record.TherapistSignatureBase64);
-            loadCanvasImage('soapPatientSignatureCanvas', res.record.PatientSignatureBase64);
+            // 4. ดึงข้อมูล BI ที่เกี่ยวข้อง (VisitCount เดียวกัน)
+            google.script.run.withSuccessHandler(biRes => {
+                if (biRes.status === 'success' && biRes.record) {
+                    const biRecord = biRes.record;
+                    const form = document.getElementById('soap-note-form');
+                    
+                    // 5. เติมข้อมูล BI ลงในฟอร์ม
+                    form.querySelector('[name="BI_AssessmentID"]').value = biRecord.AssessmentID;
+                    // (เติมคำถาม q1-q10)
+                    for (let i = 1; i <= 10; i++) {
+                        const q_val = biRecord[`q${i}`];
+                        if (q_val !== undefined) {
+                            const radio = form.querySelector(`#soap-bi-form-inner input[name="q${i}"][value="${q_val}"]`);
+                            if (radio) radio.checked = true;
+                        }
+                    }
+                    // (เติม Checkboxes)
+                    form.querySelectorAll('#soap-bi-form-inner input[type="checkbox"]').forEach(cb => {
+                        const cleanName = cb.name.replace('BI_', '');
+                        if (biRecord[cleanName] === true) {
+                            cb.checked = true;
+                        }
+                    });
+                    
+                    updateTotalBIScore('soapBiTotalScore', '#soap-bi-form-inner'); // อัปเดตคะแนนรวม
+                }
+                checkAndLoadTmse(soapRecord.PatientID, soapRecord.VisitCount);
+                Swal.close();
+            }).withFailureHandler(showError).getBIAssessmentByVisit(soapRecord.PatientID, soapRecord.VisitCount);
             
-            Swal.close();
         } else {
-            showError(res);
+            showError(soapRes);
         }
     }).withFailureHandler(showError).getSOAPNoteById(recordId);
 }
@@ -3675,7 +3699,7 @@ function createSoapTreatmentHtml(containerId, defaultDiagnosis = null) {
     createCheckboxGroup('soap-diagnosis-container', 'Diagnosis', ['Stroke', 'Fx.HIP', 'SCI', 'TBI'], false, defaultDiagnosis);
     
     // 2. สร้าง Checkbox ของ Plan (เหมือนเดิม)
-    createCheckboxGroup('soap-plan-container', 'Plan', ['F/U Program PT ต่อเนื่อง', 'OFF PT Program', 'ส่งต่อ รพ. ดูแลต่อเนื่อง']);
+    createCheckboxGroup('soap-plan-container', 'Plan', ['F/U Program PT ตามความเหมาะสม', 'OFF PT Program', 'ส่งต่อ รพ. ตามความเหมาะสม'], true);
     
     // --- START: ส่วนที่แก้ไข ---
     // 3. เรียกใช้ฟังก์ชันใหม่ที่เราเพิ่งเพิ่ม (createSoapTreatmentSectionHtml) 
@@ -3699,7 +3723,7 @@ function createSoapFormHtml(isEdit = false) {
             <input type="hidden" name="SOAPNoteID">
             <input type="hidden" name="BI_AssessmentID"> 
 
-            ${createServiceTypeHtml()}
+            ${createServiceTypeHtml('soap')}
 
             <fieldset class="border p-3 rounded"><legend class="text-lg font-semibold float-none w-auto px-2">Visit Info & Vital signs</legend>
                 <div class="row g-3">
@@ -3746,10 +3770,15 @@ function createSoapFormHtml(isEdit = false) {
 
             <fieldset class="border p-3 rounded"><legend class="text-lg font-semibold float-none w-auto px-2">Signatures</legend>
                 <div class="row g-3">
-                    <div class="col-md-6"><label>ลายมือชื่อผู้ตรวจรักษา</label><canvas id="soapTherapistSignatureCanvas" class="signature-pad"></canvas><div class="mt-1"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearCanvas('soapTherapist')">ล้าง</button></div><select name="TherapistName" id="soapTherapistName" class="form-select form-select-sm mt-2"></select></div>
+                    <div class="col-md-6"><label>ลายมือชื่อผู้ตรวจรักษา</label><canvas id="soapTherapistSignatureCanvas" class="signature-pad"></canvas><div class="mt-1"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearCanvas('soapTherapist')">ล้าง</button></div><select name="TherapistName" id="soapTherapistName" class="form-select form-select-sm mt-2" onchange="fillTherapistLicense(this, 'soapTherapistLicense')"></select><input type="text" name="TherapistLicenseNo" id="soapTherapistLicense" class="form-control form-control-sm mt-2" placeholder="เลขที่ใบประกอบวิชาชีพ" readonly></div>
                     <div class="col-md-6"><label>ลายมือชื่อผู้รับบริการ/ญาติ</label><canvas id="soapPatientSignatureCanvas" class="signature-pad"></canvas><div class="mt-1"><button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearCanvas('soapPatient')">ล้าง</button></div><input type="text" name="PatientNameFull" class="form-control form-control-sm mt-2" placeholder="ชื่อ-สกุลเต็ม"></div>
                 </div>
             </fieldset>
+            <div class="form-check my-3 border p-3 bg-teal-50/50 rounded-xl border-teal-200/50">
+                <input class="form-check-input" type="checkbox" id="want_tmse" name="want_tmse" onchange="toggleTmseForm(this.checked)">
+                <label class="form-check-label fw-bold text-teal-800" for="want_tmse">ต้องการประเมิน TMSE ใน Visit นี้</label>
+            </div>
+            <div id="tmse_form_section" style="display:none;" class="border p-4 rounded-xl bg-white shadow-sm mt-3"></div>
             
             <div class="mt-4"><button type="button" class="btn btn-primary" onclick="handleSoapNoteSubmit()">บันทึก SOAP Note</button> <button type="button" class="btn btn-secondary" onclick="showHistory('SOAP')">ยกเลิก</button></div>
        </form>`;
