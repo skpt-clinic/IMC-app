@@ -31,7 +31,7 @@ const APP_SHELL = [
   './views/modals/modal-patient.html',
   './views/modals/modal-schedule.html',
   './views/modals/modal-download.html',
-];
+  ,'clinical-print-engine.js'\n];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
