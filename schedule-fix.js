@@ -108,33 +108,23 @@
         allScheduleData = savedRows;
 
         // Refresh the patient list using the existing application bridge.
-        google.script.run
-          .withSuccessHandler(data => {
-            if (data && !data.error) {
-              allPatients = data.patients || [];
-              allScheduleData = data.schedules?.records || allScheduleData;
-              filterPatients();
-            }
+        if (typeof window.refreshScheduleState === 'function') {
+          await window.refreshScheduleState(patientId);
+        } else {
+          allScheduleData = savedRows;
+        }
 
-            if (typeof scheduleModal !== 'undefined' && scheduleModal) {
-              scheduleModal.hide();
-            }
-            Swal.close();
-            showSuccessToast(`บันทึกนัดหมายสำเร็จ ${rows.length} ครั้ง`);
+        if (typeof scheduleModal !== 'undefined' && scheduleModal) scheduleModal.hide();
+        Swal.close();
+        showSuccessToast(`บันทึกนัดหมายสำเร็จ ${rows.length} ครั้ง`);
 
-            if (typeof renderDailyScheduleList === 'function') {
-              const dateFilter = document.getElementById('schedule-date-filter');
-              if (dateFilter?.value) renderDailyScheduleList(dateFilter.value);
-            }
-            if (typeof renderMonthlyCalendar === 'function' && typeof currentCalendarDate !== 'undefined') {
-              renderMonthlyCalendar(currentCalendarDate);
-            }
-          })
-          .withFailureHandler(error => {
-            Swal.close();
-            showError(error);
-          })
-          .getInitialData();
+        if (typeof renderDailyScheduleList === 'function') {
+          const dateFilter = document.getElementById('schedule-date-filter');
+          if (dateFilter?.value) renderDailyScheduleList(dateFilter.value);
+        }
+        if (typeof renderMonthlyCalendar === 'function' && typeof currentCalendarDate !== 'undefined') {
+          renderMonthlyCalendar(currentCalendarDate);
+        }
       } catch (error) {
         console.error('[ScheduleFix] Save failed:', error);
         Swal.close();
