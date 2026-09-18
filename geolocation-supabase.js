@@ -133,4 +133,5 @@
     }
   });
 
-  // OPD and SOAP collect the hidden geolocation fields directly from their forms.\n})();\n
+  // OPD and SOAP collect the hidden geolocation fields directly from their forms.
+})();
