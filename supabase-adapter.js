@@ -1066,6 +1066,52 @@
       }
     },
 
+    // Compatibility methods used by the legacy patient-document history UI.
+    // The SPA still calls these GAS-era method names through google.script.run.
+    async getConsentsByPatientId(patientId) {
+      try {
+        const pid = String(patientId).trim();
+        const { data, error } = await client.from('Consents').select('*').eq('PatientID', pid).order('ConsentDate', { ascending: false });
+        if (error) throw error;
+        return { status: 'success', records: (data || []).map(normalizeConsentRecord) };
+      } catch (e) {
+        return { status: 'error', message: e.message };
+      }
+    },
+
+    async getBIAssessmentsByPatientId(patientId) {
+      try {
+        const pid = String(patientId).trim();
+        const { data, error } = await client.from('BIAssessments').select('*').eq('PatientID', pid).order('AssessmentDate', { ascending: false });
+        if (error) throw error;
+        return { status: 'success', records: data || [] };
+      } catch (e) {
+        return { status: 'error', message: e.message };
+      }
+    },
+
+    async getOpdRecordsByPatientId(patientId) {
+      try {
+        const pid = String(patientId).trim();
+        const { data, error } = await client.from('OPDRecords').select('*').eq('PatientID', pid).order('VisitDate', { ascending: false });
+        if (error) throw error;
+        return { status: 'success', records: (data || []).map(normalizeOpdRecord) };
+      } catch (e) {
+        return { status: 'error', message: e.message };
+      }
+    },
+
+    async getSOAPNotesByPatientId(patientId) {
+      try {
+        const pid = String(patientId).trim();
+        const { data, error } = await client.from('SOAPNotes').select('*').eq('PatientID', pid).order('VisitDate', { ascending: false });
+        if (error) throw error;
+        return { status: 'success', records: (data || []).map(normalizeSoapRecord) };
+      } catch (e) {
+        return { status: 'error', message: e.message };
+      }
+    },
+
     async getNextVisitCount(patientId) {
       try {
         const pid = String(patientId).trim();
