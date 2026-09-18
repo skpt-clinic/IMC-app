@@ -32,7 +32,6 @@ const APP_SHELL = [
   './views/modals/modal-schedule.html',
   './views/modals/modal-download.html',
   './clinical-print-engine.js',
-  './print-templates-8-forms.pdf',
 ];
 
 self.addEventListener('install', (event) => {
