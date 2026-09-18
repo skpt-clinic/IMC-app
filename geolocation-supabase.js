@@ -94,9 +94,16 @@
   window.captureGeoForRecord=captureGeoForRecord;
 
   function looksLikeServiceField(el){
-    if(!el || !el.name && !el.id) return false;
+    if(!el) return false;
     const s=((el.name||'')+' '+(el.id||'')).toLowerCase();
-    return /service|servicetype|treatmenttype|ประเภท.*บริการ|ประเภท.*ให้บริการ/.test(s);
+    if(/service|servicetype|treatmenttype|ประเภท.*บริการ|ประเภท.*ให้บริการ/.test(s)) return true;
+    const form=el.closest('form,[id*="opd" i],[id*="soap" i],[class*="opd" i],[class*="soap" i]');
+    if(form && (el.tagName==='SELECT' || el.type==='radio')){
+      const holder=el.closest('.form-group,.mb-3,.row,.field-group,div,label') || el.parentElement;
+      const txt=(holder?.innerText || holder?.textContent || '').replace(/\\s+/g,' ');
+      if(/ประเภท(?:การ)?ให้บริการ|ประเภทบริการ|บริการที่ให้|รูปแบบการให้บริการ/.test(txt)) return true;
+    }
+    return false;
   }
 
   async function captureAfterServiceSelection(){
