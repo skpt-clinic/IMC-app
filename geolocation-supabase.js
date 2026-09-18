@@ -84,68 +84,54 @@
     return pendingGeo;
   }
 
-  function findFormContainer(el) {
-    return el?.closest('form,[id*="opd" i],[id*="soap" i],[class*="opd" i],[class*="soap" i]') ||
-      el?.parentElement;
+  function setGeoFields(form, geo) {
+    if (!form || !geo) return;
+    form.__pendingGeo = geo;
+    GEO_FIELDS.forEach(k => {
+      const input = form.querySelector('[name="' + k + '"]');
+      if (input) input.value = geo[k] ?? '';
+    });
+    const result = form.querySelector('[data-geo-result]');
+    if (result) {
+      result.textContent = geo.GeoLocationTimestamp;
+      result.style.color = '#166534';
+    }
+    const button = form.querySelector('[data-geo-capture-button]');
+    if (button) {
+      button.textContent = '✓ บันทึกพิกัดแล้ว (กดใหม่เพื่ออัปเดต)';
+    }
   }
 
-  function injectButton(form) {
-    if (!form || form.querySelector('[data-geo-capture-button]')) return;
-    const isOpd = /opd/i.test(form.id || '') || /opd/i.test(form.className || '') ||
-      /OPD/i.test(form.innerText || '');
-    const isSoap = /soap/i.test(form.id || '') || /soap/i.test(form.className || '') ||
-      /SOAP/i.test(form.innerText || '');
-    if (!isOpd && !isSoap) return;
+  // The button is rendered immediately after the Service Type block by app.js.
+  // GPS is requested only from this explicit click.
+  document.addEventListener('click', async function (event) {
+    const button = event.target.closest('[data-geo-capture-button]');
+    if (!button) return;
 
-    const wrap = document.createElement('div');
-    wrap.setAttribute('data-geo-capture-wrap','true');
-    wrap.style.cssText = 'margin:12px 0;padding:12px;border:1px solid #d1d5db;border-radius:10px;background:#f9fafb;';
-    wrap.innerHTML =
-      '<div style="font-weight:600;margin-bottom:8px;">📍 พิกัดประทับเวลา</div>' +
-      '<button type="button" data-geo-capture-button class="btn btn-outline-primary">' +
-      '📍 บันทึกพิกัดประทับเวลา</button>' +
-      '<div data-geo-result style="margin-top:8px;font-size:13px;color:#374151;"></div>';
+    const form = button.closest('form');
+    if (!form) return;
 
-    const button = wrap.querySelector('button');
-    const result = wrap.querySelector('[data-geo-result]');
-    button.addEventListener('click', async function () {
-      button.disabled = true;
-      button.textContent = 'กำลังบันทึกพิกัด...';
-      result.textContent = '';
-      try {
-        const geo = await captureLocation();
-        form.__pendingGeo = geo;
-        GEO_FIELDS.forEach(k => {
-          const input = form.querySelector('[name="' + k + '"],#' + k);
-          if (input) input.value = geo[k] ?? '';
-        });
-        result.textContent = geo.GeoLocationTimestamp;
-        result.style.color = '#166534';
-        button.textContent = '✓ บันทึกพิกัดแล้ว (กดใหม่เพื่ออัปเดต)';
-      } catch (err) {
+    button.disabled = true;
+    button.textContent = 'กำลังบันทึกพิกัด...';
+    const result = form.querySelector('[data-geo-result]');
+    if (result) {
+      result.textContent = 'กำลังขอพิกัดจากอุปกรณ์...';
+      result.style.color = '#374151';
+    }
+
+    try {
+      const geo = await captureLocation();
+      setGeoFields(form, geo);
+    } catch (err) {
+      if (result) {
         result.textContent = 'ไม่สามารถบันทึกพิกัดได้: ' + (err.message || err);
         result.style.color = '#b91c1c';
-        button.textContent = '📍 บันทึกพิกัดประทับเวลา';
-      } finally {
-        button.disabled = false;
       }
-    });
-
-    // Put the control at the end of the actual form, not on patient selection.
-    form.appendChild(wrap);
-  }
-
-  function scan() {
-    document.querySelectorAll('form').forEach(injectButton);
-  }
-
-  // Do not listen to patient/service selection. Capture only by explicit button click.
-  const observer = new MutationObserver(scan);
-  observer.observe(document.body, { childList: true, subtree: true });
-  scan();
-
-  window.getCurrentLocationForRecord = async function () => pendingGeo ? {...pendingGeo} : null;
-  window.captureGeoForRecord = captureLocation;
+      button.textContent = '📍 บันทึกพิกัดประทับเวลา';
+    } finally {
+      button.disabled = false;
+    }
+  });
 
   // Make pending GPS data available to existing OPD/SOAP save payloads.
   function patchBuilders() {
