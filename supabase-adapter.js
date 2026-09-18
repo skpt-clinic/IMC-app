@@ -1603,6 +1603,14 @@
     // =================================================================
 
     async generateIMCCoverPdf(patientId) {
+      if (window.IMCDocsTemplateAdapter && typeof window.IMCDocsTemplateAdapter.generateIMCCoverPdf === 'function') {
+        try {
+          const res = await window.IMCDocsTemplateAdapter.generateIMCCoverPdf(patientId);
+          if (res && res.status === 'success') return res;
+        } catch (err) {
+          console.warn('[SupabaseAdapter] IMCDocsTemplateAdapter generateIMCCoverPdf error, falling back:', err);
+        }
+      }
       try {
         const patient = await backend.getPatientById(String(patientId).trim());
         if (!patient) return { status: 'error', message: 'ไม่พบข้อมูลผู้ป่วย' };
@@ -1612,6 +1620,14 @@
     },
 
     async generateConsentPdf(consentId) {
+      if (window.IMCDocsTemplateAdapter && typeof window.IMCDocsTemplateAdapter.generateConsentPdf === 'function') {
+        try {
+          const res = await window.IMCDocsTemplateAdapter.generateConsentPdf(consentId);
+          if (res && res.status === 'success') return res;
+        } catch (err) {
+          console.warn('[SupabaseAdapter] IMCDocsTemplateAdapter generateConsentPdf error, falling back:', err);
+        }
+      }
       try {
         const conRes = await backend.getConsentById(String(consentId).trim());
         if (conRes.status !== 'success') return conRes;
@@ -1624,6 +1640,14 @@
     },
 
     async generateBIPdf(assessmentId) {
+      if (window.IMCDocsTemplateAdapter && typeof window.IMCDocsTemplateAdapter.generateBIPdf === 'function') {
+        try {
+          const res = await window.IMCDocsTemplateAdapter.generateBIPdf(assessmentId);
+          if (res && res.status === 'success') return res;
+        } catch (err) {
+          console.warn('[SupabaseAdapter] IMCDocsTemplateAdapter generateBIPdf error, falling back:', err);
+        }
+      }
       try {
         const biRes = await backend.getBIAssessmentById(String(assessmentId).trim());
         if (biRes.status !== 'success') return biRes;
@@ -1637,6 +1661,14 @@
     },
 
     async generateOpdPdf(recordId) {
+      if (window.IMCDocsTemplateAdapter && typeof window.IMCDocsTemplateAdapter.generateOpdPdf === 'function') {
+        try {
+          const res = await window.IMCDocsTemplateAdapter.generateOpdPdf(recordId);
+          if (res && res.status === 'success') return res;
+        } catch (err) {
+          console.warn('[SupabaseAdapter] IMCDocsTemplateAdapter generateOpdPdf error, falling back:', err);
+        }
+      }
       try {
         const opdRes = await backend.getOpdRecordById(String(recordId).trim());
         if (opdRes.status !== 'success') return opdRes;
@@ -1650,6 +1682,14 @@
     },
 
     async generateSOAPPdf(noteId) {
+      if (window.IMCDocsTemplateAdapter && typeof window.IMCDocsTemplateAdapter.generateSOAPPdf === 'function') {
+        try {
+          const res = await window.IMCDocsTemplateAdapter.generateSOAPPdf(noteId);
+          if (res && res.status === 'success') return res;
+        } catch (err) {
+          console.warn('[SupabaseAdapter] IMCDocsTemplateAdapter generateSOAPPdf error, falling back:', err);
+        }
+      }
       try {
         const soapRes = await backend.getSOAPNoteById(String(noteId).trim());
         if (soapRes.status !== 'success') return soapRes;
@@ -1732,6 +1772,14 @@
     },
 
     async generateTMSEPdf(recordId) {
+      if (window.IMCDocsTemplateAdapter && typeof window.IMCDocsTemplateAdapter.generateTMSEPdf === 'function') {
+        try {
+          const res = await window.IMCDocsTemplateAdapter.generateTMSEPdf(recordId);
+          if (res && res.status === 'success') return res;
+        } catch (err) {
+          console.warn('[SupabaseAdapter] IMCDocsTemplateAdapter generateTMSEPdf error, falling back:', err);
+        }
+      }
       try {
         const res = await backend.getTMSERecordById(String(recordId).trim());
         if (res.status !== 'success') return res;
@@ -1745,6 +1793,14 @@
     },
 
     async generateMHQPdf(recordId) {
+      if (window.IMCDocsTemplateAdapter && typeof window.IMCDocsTemplateAdapter.generateMHQPdf === 'function') {
+        try {
+          const res = await window.IMCDocsTemplateAdapter.generateMHQPdf(recordId);
+          if (res && res.status === 'success') return res;
+        } catch (err) {
+          console.warn('[SupabaseAdapter] IMCDocsTemplateAdapter generateMHQPdf error, falling back:', err);
+        }
+      }
       try {
         const res = await backend.getMHQRecordById(String(recordId).trim());
         if (res.status !== 'success') return res;
@@ -1758,6 +1814,14 @@
     },
 
     async generateDysphagiaPdf(recordId) {
+      if (window.IMCDocsTemplateAdapter && typeof window.IMCDocsTemplateAdapter.generateDysphagiaPdf === 'function') {
+        try {
+          const res = await window.IMCDocsTemplateAdapter.generateDysphagiaPdf(recordId);
+          if (res && res.status === 'success') return res;
+        } catch (err) {
+          console.warn('[SupabaseAdapter] IMCDocsTemplateAdapter generateDysphagiaPdf error, falling back:', err);
+        }
+      }
       try {
         const res = await backend.getDysphagiaRecordById(String(recordId).trim());
         if (res.status !== 'success') return res;

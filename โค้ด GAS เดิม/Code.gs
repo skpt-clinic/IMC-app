@@ -6,9 +6,10 @@ const DOC_TEMPLATE_ID = '1Im3IMg32mu3yEm_S6GvCeaid24z3rAUgnDl_Xzmcfy8';
 const IMC_COVER_TEMPLATE_ID = '1cImx394ZD2zh-H6Szn8G_ED46MlvfF3wvp9D5oaze3s';
 const BI_TEMPLATE_ID = '19dcvgpwgFUbJFeDNRXSSYC_O0oIQg8G9_xtfbI5xgKI';
 const OPD_TEMPLATE_ID = '1L7QGkwA-8KiMjHVmQjCqE3rWZ2hlxWuJ_CkgReqlAWs';
-const CONSENT_TEMPLATE_ID = '1mXw6MdoAzI0NMdZ2o51jlrGhe3i3uGQm5i8vCZ7Z4Z0';
+const CONSENT_TEMPLATE_ID = '1mXw6MdoAz0NMdZ2o51jlrGhe3i3uGQm5i8vCZ7Z4Z0';
 const SOAP_TEMPLATE_ID = '1q_DBudqfmr_C8eiPjz5WdXb4QTdKrT6RPf-uJQYkxKU';
 
+const TEMPLATE_FOLDER_ID = '1JJCfofS-zIaFZdA4JPzOnGUV-fhNQwfq';
 const PHOTO_FOLDER_ID = '10gWEXaEEDx3R0F8tSB67mOfr_3-nG4c8'; 
 const BODY_CHART_IMAGE_ID = '15GkXRz3FQeKoASYfXQEtS__lq1ax44iI';
 const DEFAULT_CLINIC_LOGO_URL = 'https://skpt-clinic.github.io/IMC-app/icon.jpg';
@@ -1362,7 +1363,8 @@ function generatePdfAsBase64(templateId, data, fileNamePrefix) {
   let tempDocFile = null;
   try {
     data = data || {};
-    const tempFolder = DriveApp.getFolderById(PHOTO_FOLDER_ID);
+    const folderId = (typeof TEMPLATE_FOLDER_ID !== 'undefined' && TEMPLATE_FOLDER_ID) ? TEMPLATE_FOLDER_ID : PHOTO_FOLDER_ID;
+    const tempFolder = DriveApp.getFolderById(folderId);
     const newFileName = `${fileNamePrefix}-${data.PatientName || data.ClinicNumber || 'Unknown'}`;
     tempDocFile = DriveApp.getFileById(templateId).makeCopy(newFileName, tempFolder);
 
