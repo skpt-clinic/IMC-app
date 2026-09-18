@@ -12,7 +12,7 @@
 
     const original = window.handleSaveSchedules;
 
-    window.handleSaveSchedules = function () {
+    window.handleSaveSchedules = async function () {
       const patientId = document.getElementById('schedulePatientId')?.value;
       if (!patientId) {
         Swal.fire('เกิดข้อผิดพลาด', 'ไม่พบรหัสผู้ป่วยสำหรับบันทึกนัดหมาย', 'error');
