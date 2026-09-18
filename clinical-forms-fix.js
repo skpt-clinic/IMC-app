@@ -164,23 +164,7 @@
   })(window.showHistory);
 
   // Add the three assessment choices to the service menu without disturbing existing buttons.
-  function ensureMenuButtons(){
-    const bar=document.getElementById('service-menu-bar');
-    if(!bar || bar.dataset.extended==='true') return;
-    bar.dataset.extended='true';
-    const wrapper=document.createElement('div');
-    wrapper.className='w-full flex flex-wrap gap-2 mt-2';
-    wrapper.innerHTML='<div class="w-full text-sm font-semibold text-gray-600">แบบประเมินเพิ่มเติม:</div>'+
-      '<button class="btn btn-outline-primary" onclick="showServiceSubView(\'TMSE\')">TMSE</button>'+
-      '<button class="btn btn-outline-primary" onclick="showServiceSubView(\'MHQ\')">MHQ</button>'+
-      '<button class="btn btn-outline-primary" onclick="showServiceSubView(\'Dysphagia\')">Dysphagia</button>';
-    bar.appendChild(wrapper);
-  }
-  const observer=new MutationObserver(ensureMenuButtons);
-  observer.observe(document.documentElement,{subtree:true,childList:true});
-  setInterval(ensureMenuButtons,1000);
-
-  // Extend showServiceSubView for these three forms while preserving the original four.
+  // TMSE/MHQ/Dysphagia buttons are rendered by app.js on every visit.\n  // Extend showServiceSubView for these three forms while preserving the original four.
   const originalSubView=window.showServiceSubView;
   window.showServiceSubView=function(type,recordId=null){
     if(configs[type]){
