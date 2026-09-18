@@ -25,7 +25,8 @@ const EXTRA_SCRIPTS = [
   'dashboard-status-fix.js?v=20260917_1',
   'address-dropdown-fix.js?v=20260917_1',
   'schedule-fix.js?v=20260918_2',
-  'schedule-display-fix.js?v=20260918_1'
+  'schedule-display-fix.js?v=20260918_1',
+  'patient-schedule-refresh-fix.js?v=20260918_1'
 ];
 
 let _loadAllPartialsPromise = null;
