@@ -4,6 +4,8 @@
 Chart.register(ChartDataLabels);
 let allPatients = [], nextCN = "", clinicSettings = {}, allTherapists = [], allAddressData = [], currentPatient = null, allScheduleData = [], therapistLicenseMap = {};
 let currentPatientRecords = null, currentDetailVisitDate = '';
+// Expose the active patient ID to modules that cannot access this file's lexical state.
+window.getCurrentPatientIdForEvidence = function () { return String(currentPatient?.PatientID || '').trim(); };
 let loggedInUser = null;
 let patientModal, scheduleModal;
 let signaturePads = {};
