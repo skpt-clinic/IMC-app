@@ -3773,6 +3773,11 @@ function getSoapFormData() {
         Plan: getCheckboxGroupData('soap-plan-container', 'Plan'), 
         TherapistName: data.TherapistName,
         PatientNameFull: data.PatientNameFull,
+        GeoLatitude: data.GeoLatitude || '',
+        GeoLongitude: data.GeoLongitude || '',
+        GeoAddress: data.GeoAddress || '',
+        GeoLocationTimestamp: data.GeoLocationTimestamp || '',
+        GeoTimestamp: data.GeoTimestamp || '',
         TherapistSignatureBase64: signaturePads.soapTherapist && !signaturePads.soapTherapist.isEmpty() ?
 signaturePads.soapTherapist.toDataURL() : '',
         PatientSignatureBase64: signaturePads.soapPatient && !signaturePads.soapPatient.isEmpty() ?
