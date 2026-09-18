@@ -303,6 +303,17 @@
             });
           }
         } catch (_) {}
+        const therapistLicenseMap = {};
+        try {
+          const { data: uLicenseList } = await client.from('Users').select('"FullName", "License"');
+          if (uLicenseList && Array.isArray(uLicenseList)) uLicenseList.forEach(u => {
+            if (u.FullName) {
+              const cleanName = u.FullName.trim();
+              therapistLicenseMap[cleanName] = u.License || '';
+              therapistLicenseMap[cleanName.startsWith('กภ.') ? cleanName : `กภ.${cleanName}`] = u.License || '';
+            }
+          });
+        } catch (_) {}
         const zoneList = dropdowns.map(r => r.Zone).filter(Boolean);
 
         // Next CN calculation
@@ -340,6 +351,7 @@
         return {
           settings,
           therapists: therapistList,
+          therapistLicenseMap,
           zones: zoneList,
           nextCN,
           patients: processedPatients,
