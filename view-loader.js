@@ -17,10 +17,11 @@ const VIEWS = [
 ];
 
 const EXTRA_SCRIPTS = [
+  'clinical-print-templates.js?v=20260919_1',
   'bridge-proxy.js?v=20260917_2',
   'gas-bridge-capture.js?v=20260917_2',
-  'google-docs-template-adapter-v2.js?v=20260918_4',
-  'google-docs-template-adapter-fix.js?v=20260918_4',
+  'google-docs-template-adapter-v2.js?v=20260919_1',
+  'google-docs-template-adapter-fix.js?v=20260919_1',
   'patient-list-fix.js?v=20260917_2',
   'dashboard-status-fix.js?v=20260917_1',
   'address-dropdown-fix.js?v=20260917_1',

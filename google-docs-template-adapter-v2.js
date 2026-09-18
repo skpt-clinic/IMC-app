@@ -624,6 +624,10 @@
   async function generate(type, recordId, autoDownload = false) {
     try {
       const normType = String(type).toLowerCase();
+      if (window.ClinicalPrintTemplates && typeof window.ClinicalPrintTemplates.printDocument === 'function') {
+        return await window.ClinicalPrintTemplates.printDocument(normType, recordId);
+      }
+
       const cfg = TYPE_CONFIG[normType];
       if (!cfg) throw new Error(`ไม่รู้จักชนิดเอกสาร: ${type}`);
 

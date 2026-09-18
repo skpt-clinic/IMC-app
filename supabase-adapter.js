@@ -1603,6 +1603,13 @@
     // =================================================================
 
     async generateIMCCoverPdf(patientId) {
+      if (window.ClinicalPrintTemplates && typeof window.ClinicalPrintTemplates.printDocument === 'function') {
+        try {
+          return await window.ClinicalPrintTemplates.printDocument('imccover', patientId);
+        } catch (err) {
+          console.warn('[SupabaseAdapter] ClinicalPrintTemplates generateIMCCoverPdf error:', err);
+        }
+      }
       if (window.IMCDocsTemplateAdapter && typeof window.IMCDocsTemplateAdapter.generateIMCCoverPdf === 'function') {
         try {
           const res = await window.IMCDocsTemplateAdapter.generateIMCCoverPdf(patientId);
@@ -1620,6 +1627,13 @@
     },
 
     async generateConsentPdf(consentId) {
+      if (window.ClinicalPrintTemplates && typeof window.ClinicalPrintTemplates.printDocument === 'function') {
+        try {
+          return await window.ClinicalPrintTemplates.printDocument('consent', consentId);
+        } catch (err) {
+          console.warn('[SupabaseAdapter] ClinicalPrintTemplates generateConsentPdf error:', err);
+        }
+      }
       if (window.IMCDocsTemplateAdapter && typeof window.IMCDocsTemplateAdapter.generateConsentPdf === 'function') {
         try {
           const res = await window.IMCDocsTemplateAdapter.generateConsentPdf(consentId);
@@ -1640,6 +1654,13 @@
     },
 
     async generateBIPdf(assessmentId) {
+      if (window.ClinicalPrintTemplates && typeof window.ClinicalPrintTemplates.printDocument === 'function') {
+        try {
+          return await window.ClinicalPrintTemplates.printDocument('bi', assessmentId);
+        } catch (err) {
+          console.warn('[SupabaseAdapter] ClinicalPrintTemplates generateBIPdf error:', err);
+        }
+      }
       if (window.IMCDocsTemplateAdapter && typeof window.IMCDocsTemplateAdapter.generateBIPdf === 'function') {
         try {
           const res = await window.IMCDocsTemplateAdapter.generateBIPdf(assessmentId);
@@ -1661,6 +1682,13 @@
     },
 
     async generateOpdPdf(recordId) {
+      if (window.ClinicalPrintTemplates && typeof window.ClinicalPrintTemplates.printDocument === 'function') {
+        try {
+          return await window.ClinicalPrintTemplates.printDocument('opd', recordId);
+        } catch (err) {
+          console.warn('[SupabaseAdapter] ClinicalPrintTemplates generateOpdPdf error:', err);
+        }
+      }
       if (window.IMCDocsTemplateAdapter && typeof window.IMCDocsTemplateAdapter.generateOpdPdf === 'function') {
         try {
           const res = await window.IMCDocsTemplateAdapter.generateOpdPdf(recordId);
@@ -1682,6 +1710,13 @@
     },
 
     async generateSOAPPdf(noteId) {
+      if (window.ClinicalPrintTemplates && typeof window.ClinicalPrintTemplates.printDocument === 'function') {
+        try {
+          return await window.ClinicalPrintTemplates.printDocument('soap', noteId);
+        } catch (err) {
+          console.warn('[SupabaseAdapter] ClinicalPrintTemplates generateSOAPPdf error:', err);
+        }
+      }
       if (window.IMCDocsTemplateAdapter && typeof window.IMCDocsTemplateAdapter.generateSOAPPdf === 'function') {
         try {
           const res = await window.IMCDocsTemplateAdapter.generateSOAPPdf(noteId);
@@ -1772,6 +1807,13 @@
     },
 
     async generateTMSEPdf(recordId) {
+      if (window.ClinicalPrintTemplates && typeof window.ClinicalPrintTemplates.printDocument === 'function') {
+        try {
+          return await window.ClinicalPrintTemplates.printDocument('tmse', recordId);
+        } catch (err) {
+          console.warn('[SupabaseAdapter] ClinicalPrintTemplates generateTMSEPdf error:', err);
+        }
+      }
       if (window.IMCDocsTemplateAdapter && typeof window.IMCDocsTemplateAdapter.generateTMSEPdf === 'function') {
         try {
           const res = await window.IMCDocsTemplateAdapter.generateTMSEPdf(recordId);
@@ -1793,6 +1835,13 @@
     },
 
     async generateMHQPdf(recordId) {
+      if (window.ClinicalPrintTemplates && typeof window.ClinicalPrintTemplates.printDocument === 'function') {
+        try {
+          return await window.ClinicalPrintTemplates.printDocument('mhq', recordId);
+        } catch (err) {
+          console.warn('[SupabaseAdapter] ClinicalPrintTemplates generateMHQPdf error:', err);
+        }
+      }
       if (window.IMCDocsTemplateAdapter && typeof window.IMCDocsTemplateAdapter.generateMHQPdf === 'function') {
         try {
           const res = await window.IMCDocsTemplateAdapter.generateMHQPdf(recordId);
@@ -1814,6 +1863,13 @@
     },
 
     async generateDysphagiaPdf(recordId) {
+      if (window.ClinicalPrintTemplates && typeof window.ClinicalPrintTemplates.printDocument === 'function') {
+        try {
+          return await window.ClinicalPrintTemplates.printDocument('dysphagia', recordId);
+        } catch (err) {
+          console.warn('[SupabaseAdapter] ClinicalPrintTemplates generateDysphagiaPdf error:', err);
+        }
+      }
       if (window.IMCDocsTemplateAdapter && typeof window.IMCDocsTemplateAdapter.generateDysphagiaPdf === 'function') {
         try {
           const res = await window.IMCDocsTemplateAdapter.generateDysphagiaPdf(recordId);
