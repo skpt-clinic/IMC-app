@@ -171,6 +171,46 @@ function setupInitialUI(data) {
 // =================================================================
 // 3. VIEW MANAGEMENT & NAVIGATION
 // =================================================================
+// =================================================================
+// GAS COMPATIBILITY HELPERS — restored from original JavaScript.html
+// =================================================================
+function toBangkokDateStr(dateInput) { if (!dateInput) return ''; const d = new Date(dateInput); if (isNaN(d.getTime())) return ''; return d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' }); }
+function fillTherapistLicense(selectEl, licenseInputId) { const licenseEl = document.getElementById(licenseInputId); if (!licenseEl) return; licenseEl.value = therapistLicenseMap[selectEl.value] || ''; }
+function formatThaiDateWithTime(date) {
+    const months = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+    const day = date.getDate(), month = months[date.getMonth()], year = date.getFullYear() + 543;
+    const hours = String(date.getHours()).padStart(2, '0'), minutes = String(date.getMinutes()).padStart(2, '0');
+    return `วันที่ ${day} ${month} ${year} เวลา ${hours}.${minutes}น.`;
+}
+function normalizeScheduleDateToYMD(rawDate) {
+    if (!rawDate) return '';
+    if (rawDate instanceof Date) { if (isNaN(rawDate.getTime())) return ''; return rawDate.toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' }); }
+    const str = String(rawDate).trim(); if (!str) return '';
+    const datePart = str.split(',')[0].trim();
+    const thMatch = datePart.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (thMatch) { const [, d, m, y] = thMatch; return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`; }
+    if (/^\d{4}-\d{1,2}-\d{1,2}/.test(datePart) || /t\d{2}:\d{2}/i.test(str)) {
+        const parsedIso = new Date(str); if (!isNaN(parsedIso.getTime())) return parsedIso.toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' });
+    }
+    const parsed = new Date(str); if (!isNaN(parsed.getTime())) return parsed.toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' });
+    return '';
+}
+function toggleSpecialAssessmentDetails() {
+    const asiaChecked = document.querySelector('#sa_ASIA')?.checked;
+    const asiaDetails = document.getElementById('sa_asia_details');
+    if (asiaDetails) asiaDetails.style.display = asiaChecked ? 'block' : 'none';
+}
+function applyServiceTypeSelection(form, record = {}) {
+    if (!form) return;
+    const homeInput = form.querySelector('[name="ServiceType_Home"]'), clinicInput = form.querySelector('[name="ServiceType_Clinic"]');
+    if (!homeInput || !clinicInput) return;
+    const isCheckedValue = value => value === true || value === 'true' || value === 'TRUE' || value === 1 || value === '1' || value === 'on';
+    const home = isCheckedValue(record.ServiceType_Home), clinic = isCheckedValue(record.ServiceType_Clinic);
+    const serviceType = String(record.ServiceType || '').trim().toLowerCase();
+    homeInput.checked = home || serviceType === 'home' || serviceType === 'house' || serviceType === 'home visit';
+    clinicInput.checked = clinic || serviceType === 'clinic' || serviceType === 'opd' || serviceType === 'outpatient';
+}
+
 function toggleMobileMenu() {
     const sidebar = document.getElementById('mobile-sidebar');
     const overlay = document.getElementById('mobile-sidebar-overlay');
