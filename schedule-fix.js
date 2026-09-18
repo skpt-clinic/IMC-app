@@ -52,66 +52,94 @@
       });
 
       showLoading('กำลังบันทึกนัดหมาย...');
-      google.script.run
-        .withSuccessHandler(async response => {
-          if (!response || response.status !== 'success') {
+
+      // Use the already-initialized Supabase client directly here.
+      // The Schedules table does not have a Notes column, so the older
+      // adapter implementation was producing HTTP 400 on INSERT.
+      const client = window.supabaseClient;
+      if (!client) {
+        Swal.close();
+        showError({ message: 'ไม่พบการเชื่อมต่อ Supabase' });
+        return;
+      }
+
+      try {
+        // Replace this patient's existing appointment plan with the submitted plan.
+        const { error: deleteError } = await client
+          .from('Schedules')
+          .delete()
+          .eq('PatientID', patientId);
+        if (deleteError) throw deleteError;
+
+        const rows = normalizedDates
+          .map((dateStr, idx) => {
+            if (!dateStr) return null;
+            return {
+              ScheduleID: `SCH${Date.now()}_${idx + 1}`,
+              PatientID: patientId,
+              VisitNumber: idx + 1,
+              ScheduledDate: new Date(dateStr + 'T00:00:00+07:00').toISOString(),
+              Status: 'Scheduled'
+            };
+          })
+          .filter(Boolean);
+
+        if (!rows.length) {
+          throw new Error('ไม่พบวันที่นัดหมายที่ต้องการบันทึก');
+        }
+
+        const { error: insertError } = await client
+          .from('Schedules')
+          .insert(rows);
+        if (insertError) throw insertError;
+
+        // Read back immediately to verify persistence.
+        const { data: savedRows, error: verifyError } = await client
+          .from('Schedules')
+          .select('ScheduleID,PatientID,VisitNumber,ScheduledDate,Status,QueueIndex,ScheduleZone')
+          .eq('PatientID', patientId)
+          .order('VisitNumber', { ascending: true });
+        if (verifyError) throw verifyError;
+
+        if (!savedRows || savedRows.length !== rows.length) {
+          throw new Error('บันทึกนัดหมายแล้ว แต่ตรวจสอบจำนวนรายการที่บันทึกกลับมาไม่ครบ');
+        }
+
+        allScheduleData = savedRows;
+
+        // Refresh the patient list using the existing application bridge.
+        google.script.run
+          .withSuccessHandler(data => {
+            if (data && !data.error) {
+              allPatients = data.patients || [];
+              allScheduleData = data.schedules?.records || allScheduleData;
+              filterPatients();
+            }
+
+            if (typeof scheduleModal !== 'undefined' && scheduleModal) {
+              scheduleModal.hide();
+            }
             Swal.close();
-            showError(response || { message: 'ไม่สามารถบันทึกนัดหมายได้' });
-            return;
-          }
+            showSuccessToast(`บันทึกนัดหมายสำเร็จ ${rows.length} ครั้ง`);
 
-          // Verify that Supabase actually contains the saved schedule records.
-          google.script.run
-            .withSuccessHandler(scheduleResponse => {
-              if (!scheduleResponse || scheduleResponse.status !== 'success') {
-                Swal.close();
-                showError(scheduleResponse || { message: 'บันทึกสำเร็จแต่ไม่สามารถตรวจสอบตารางนัดได้' });
-                return;
-              }
-
-              allScheduleData = scheduleResponse.records || [];
-
-              // Refresh patients so NextAppointment/scheduleInfo are recalculated.
-              google.script.run
-                .withSuccessHandler(data => {
-                  if (data && !data.error) {
-                    allPatients = data.patients || [];
-                    allScheduleData = data.schedules?.records || allScheduleData;
-                    filterPatients();
-                  }
-
-                  if (typeof scheduleModal !== 'undefined' && scheduleModal) {
-                    scheduleModal.hide();
-                  }
-                  Swal.close();
-                  showSuccessToast(`บันทึกนัดหมายสำเร็จ ${compactDates.length} ครั้ง`);
-
-                  // If the schedule page is currently visible, redraw it immediately.
-                  if (typeof renderDailyScheduleList === 'function') {
-                    const dateFilter = document.getElementById('schedule-date-filter');
-                    if (dateFilter?.value) renderDailyScheduleList(dateFilter.value);
-                  }
-                  if (typeof renderMonthlyCalendar === 'function' && typeof currentCalendarDate !== 'undefined') {
-                    renderMonthlyCalendar(currentCalendarDate);
-                  }
-                })
-                .withFailureHandler(error => {
-                  Swal.close();
-                  showError(error);
-                })
-                .getInitialData();
-            })
-            .withFailureHandler(error => {
-              Swal.close();
-              showError(error);
-            })
-            .getAllSchedules();
-        })
-        .withFailureHandler(error => {
-          Swal.close();
-          showError(error);
-        })
-        .saveSchedules({ patientId, dates: normalizedDates });
+            if (typeof renderDailyScheduleList === 'function') {
+              const dateFilter = document.getElementById('schedule-date-filter');
+              if (dateFilter?.value) renderDailyScheduleList(dateFilter.value);
+            }
+            if (typeof renderMonthlyCalendar === 'function' && typeof currentCalendarDate !== 'undefined') {
+              renderMonthlyCalendar(currentCalendarDate);
+            }
+          })
+          .withFailureHandler(error => {
+            Swal.close();
+            showError(error);
+          })
+          .getInitialData();
+      } catch (error) {
+        console.error('[ScheduleFix] Save failed:', error);
+        Swal.close();
+        showError(error);
+      }
     };
 
     window.__imcScheduleFixInstalled = true;
