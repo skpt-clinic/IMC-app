@@ -8,7 +8,7 @@
 
   const TEMPLATES = {
     IMCCover: '1cImx394ZD2zh-H6Szn8G_ED46MlvfF3wvp9D5oaze3s',
-    Consent: '1mXw6MdoAz0NMdZ2o51jlrGhe3i3uGQm5i8vCZ7Z4Z0',
+    Consent: '1mXw6MdoAzI0NMdZ2o51jlrGhe3i3uGQm5i8vCZ7Z4Z0',
     BI: '19dcvgpwgFUbJFeDNRXSSYC_O0oIQg8G9_xtfbI5xgKI',
     OPD: '1L7QGkwA-8KiMjHVmQjCqE3rWZ2hlxWuJ_CkgReqlAWs',
     SOAP: '1q_DBudqfmr_C8eiPjz5WdXb4QTdKrT6RPf-uJQYkxKU',
