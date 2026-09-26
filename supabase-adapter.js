@@ -1236,10 +1236,45 @@
       }
     },
 
+    normalizeOpdRecordColumnNames(data) {
+      const aliases = {
+        GaitAnalysis_Grade_Heelstrike: 'GaitAnalysis_Grade_HeelStrike',
+        GaitAnalysis_Grade_Flatfoot: 'GaitAnalysis_Grade_FlatFoot',
+        GaitAnalysis_Grade_Heeloff: 'GaitAnalysis_Grade_HeelOff',
+        GaitAnalysis_Grade_Toeoff: 'GaitAnalysis_Grade_ToeOff',
+        GaitAnalysis_Grade_Swingphase: 'GaitAnalysis_Grade_SwingPhase',
+        QM_UE_Rt: 'QM_UE_RT',
+        QM_UE_Lt: 'QM_UE_LT',
+        QM_LE_Rt: 'QM_LE_RT',
+        QM_LE_Lt: 'QM_LE_LT',
+        Joint_UE_Rt: 'Joint_UE_RT',
+        Joint_UE_Lt: 'Joint_UE_LT',
+        Joint_LE_Rt: 'Joint_LE_RT',
+        Joint_LE_Lt: 'Joint_LE_LT',
+        Sensation_UE_Rt: 'Sensation_UE_RT',
+        Sensation_UE_Lt: 'Sensation_UE_LT',
+        Sensation_LE_Rt: 'Sensation_LE_RT',
+        Sensation_LE_Lt: 'Sensation_LE_LT'
+      };
+      const normalized = { ...data };
+      Object.entries(aliases).forEach(([wrongKey, correctKey]) => {
+        if (Object.prototype.hasOwnProperty.call(normalized, wrongKey)) {
+          if (!Object.prototype.hasOwnProperty.call(normalized, correctKey) || normalized[correctKey] === undefined) {
+            normalized[correctKey] = normalized[wrongKey];
+          }
+          delete normalized[wrongKey];
+        }
+      });
+      return normalized;
+    },
+
     async saveOpdRecord(data) {
       try {
+        // Normalize all known OPD column-casing aliases before PATCH/INSERT.
+        // PostgreSQL quoted identifiers are case-sensitive, so e.g. Heeloff !== HeelOff.
+        const normalizedData = this.normalizeOpdRecordColumnNames(data);
         const record = Object.fromEntries(
-          Object.entries({ ...data }).filter(([, value]) => value !== undefined)
+          Object.entries({ ...normalizedData }).filter(([, value]) => value !== undefined)
         );
         const pid = record.PatientID || 'unknown';
 
