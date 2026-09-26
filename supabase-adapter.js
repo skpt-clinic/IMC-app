@@ -1212,10 +1212,14 @@
         if (biRes.data && biRes.data.length > 0 && biRes.data[0].TotalScore !== null) {
           latestBI = biRes.data[0].TotalScore;
         }
+        const visitCount = Number(nextVisit?.visitCount) || 1;
         return {
           status: 'success',
           latestBI: latestBI,
-          nextVisitCount: nextVisit.visitCount || 1
+          nextVisitCount: visitCount,
+          // Legacy GAS-compatible aliases consumed by the existing OPD form UI.
+          initialBI: latestBI ?? '',
+          visitCount
         };
       } catch (e) {
         return { status: 'error', message: e.message };
@@ -1234,7 +1238,9 @@
 
     async saveOpdRecord(data) {
       try {
-        const record = { ...data };
+        const record = Object.fromEntries(
+          Object.entries({ ...data }).filter(([, value]) => value !== undefined)
+        );
         const pid = record.PatientID || 'unknown';
 
         if (record.BodyChartDrawingBase64 && record.BodyChartDrawingBase64.startsWith('data:image/')) {
