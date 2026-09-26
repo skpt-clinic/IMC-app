@@ -179,18 +179,62 @@ function setupInitialUI(data) {
 // GAS COMPATIBILITY HELPERS — restored from original JavaScript.html
 // =================================================================
 function toBangkokDateStr(dateInput) { if (!dateInput) return ''; const d = new Date(dateInput); if (isNaN(d.getTime())) return ''; return d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' }); }
-function fillTherapistLicense(selectEl, licenseInputId) { const licenseEl = document.getElementById(licenseInputId); if (!licenseEl) return; licenseEl.value = therapistLicenseMap[selectEl.value] || ''; }
-// [เพิ่ม] เลือกชื่อนักกายภาพบำบัดที่ล็อกอินอยู่ให้อัตโนมัติในฟอร์ม แล้วดึงเลขที่ใบประกอบวิชาชีพทันที
-// (เดิม fillTherapistLicense จะทำงานเมื่อผู้ใช้เปลี่ยน dropdown เองเท่านั้น ทำให้ฟอร์มใหม่ไม่มีเลขที่ใบประกอบจนกว่าจะเลือกซ้ำ)
+function normalizeTherapistName(name) {
+    return String(name || '')
+        .replace(/^กภ\.\s*/i, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+}
+function getTherapistLicense(name) {
+    const raw = String(name || '').trim();
+    if (!raw) return '';
+    const directKeys = [raw, raw.startsWith('กภ.') ? raw : `กภ.${raw}`, raw.replace(/^กภ\.\s*/i, '').trim()];
+    for (const key of directKeys) {
+        if (therapistLicenseMap[key]) return String(therapistLicenseMap[key]).trim();
+    }
+    const normalized = normalizeTherapistName(raw);
+    for (const [key, value] of Object.entries(therapistLicenseMap || {})) {
+        if (normalizeTherapistName(key) === normalized && value) return String(value).trim();
+    }
+    return '';
+}
+function fillTherapistLicense(selectEl, licenseInputId) {
+    const licenseEl = document.getElementById(licenseInputId);
+    if (!licenseEl || !selectEl) return;
+    licenseEl.value = getTherapistLicense(selectEl.value);
+}
 function autoSelectTherapistAndLicense(selectId, licenseInputId) {
     const selectEl = document.getElementById(selectId);
-    if (!selectEl || !loggedInUser || !loggedInUser.fullName) return;
-    const cleanName = loggedInUser.fullName.trim();
-    const candidates = [cleanName, cleanName.startsWith('กภ.') ? cleanName : `กภ.${cleanName}`];
-    const match = Array.from(selectEl.options).find(o => candidates.includes(o.value));
-    if (match) {
-        selectEl.value = match.value;
-        fillTherapistLicense(selectEl, licenseInputId);
+    if (!selectEl) return;
+    const loggedName = String(loggedInUser?.fullName || '').trim();
+    const loggedNormalized = normalizeTherapistName(loggedName);
+    if (loggedNormalized) {
+        const match = Array.from(selectEl.options).find(option =>
+            normalizeTherapistName(option.value) === loggedNormalized
+        );
+        if (match) selectEl.value = match.value;
+    }
+    fillTherapistLicense(selectEl, licenseInputId);
+
+    // Fallback: ถ้า map ยังไม่พร้อม ให้ดึง License จาก Users โดยตรง
+    if (!document.getElementById(licenseInputId)?.value && window.supabaseClient) {
+        const selectedName = String(selectEl.value || '').trim();
+        const selectedNormalized = normalizeTherapistName(selectedName);
+        if (selectedNormalized) {
+            window.supabaseClient.from('Users').select('"FullName", "License"').then(({data,error}) => {
+                if (error || !Array.isArray(data)) return;
+                const user = data.find(u => normalizeTherapistName(u.FullName) === selectedNormalized);
+                if (user?.License) {
+                    const license = String(user.License).trim();
+                    therapistLicenseMap[selectedName] = license;
+                    therapistLicenseMap[user.FullName] = license;
+                    therapistLicenseMap[`กภ.${String(user.FullName).replace(/^กภ\.\s*/i, '')}`] = license;
+                    const licenseEl = document.getElementById(licenseInputId);
+                    if (licenseEl) licenseEl.value = license;
+                }
+            });
+        }
     }
 }
 function formatThaiDateWithTime(date) {
