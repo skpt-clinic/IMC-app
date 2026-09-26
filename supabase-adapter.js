@@ -356,7 +356,10 @@
           nextCN,
           patients: processedPatients,
           addressData: addrRes.data || [],
-          schedules: { status: 'success', records: schedRes.data || [] }
+          // The SPA expects schedules to be a plain array.
+          // Returning the old GAS-style {status, records} object causes
+          // schedule-display-fix.js to call .map() on an object.
+          schedules: schedRes.data || []
         };
       } catch (err) {
         console.error("Error in getInitialData:", err);
