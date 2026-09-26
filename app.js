@@ -3414,6 +3414,13 @@ function getServiceTypeSelection(form) {
     };
 }
 
+function getGaitPhaseKey(phase) {
+    // Keep UI phase labels independent from the exact quoted PostgreSQL column casing.
+    // The existing OPDRecords schema uses FlatFoot (capital F) for this one field.
+    return String(phase || '') === 'Flat foot'
+        ? 'FlatFoot'
+        : String(phase || '').replace(/\s+/g, '');
+}
 function createGaitAnalysisHtml() {
     const phases = ['Heel strike', 'Flat foot', 'Heel off', 'Toe off', 'Swing phase'];
     const grades = ['Independent', 'Less', 'Lack'];
