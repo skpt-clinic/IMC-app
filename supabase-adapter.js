@@ -2239,9 +2239,9 @@
 </div>
 <div class="section">
   <div class="label">การประเมินทางกาย (Physical Exam):</div>
-  <div class="row"><span class="label">Bed Mobility:</span><span class="val long">${_val(r.BedMobility)}</span></div>
-  <div class="row"><span class="label">Gross Motor:</span><span class="val long">${_val(r.GrossMotor)}</span></div>
-  <div class="row"><span class="label">Balance - นั่ง:</span><span class="val">${_val(_parseJSON(r.Balance, 'Sitting'))}</span> &nbsp; <span class="label">ยืน:</span><span class="val">${_val(_parseJSON(r.Balance, 'Standing'))}</span></div>
+  <div class="row"><span class="label">Gross Motor Function:</span><span class="val long">${_val(r.GrossMotor)}</span></div>
+  <div class="row"><span class="label">Hand Function:</span><span class="val long">${_val(_formatGradeMap(r.HandFunction))}</span></div>
+  <div class="row"><span class="label">Balance - นั่ง:</span><span class="val">${_val([r.Bal_SitStatic && `static: ${r.Bal_SitStatic}`, r.Bal_SitDynamic && `dynamic: ${r.Bal_SitDynamic}`].filter(Boolean).join(', ') || _parseJSON(r.Balance, 'Sitting'))}</span> &nbsp; <span class="label">ยืน:</span><span class="val">${_val([r.Bal_StandStatic && `static: ${r.Bal_StandStatic}`, r.Bal_StandDynamic && `dynamic: ${r.Bal_StandDynamic}`].filter(Boolean).join(', ') || _parseJSON(r.Balance, 'Standing'))}</span></div>
   <div class="row"><span class="label">Tone:</span><span class="val long">${_val(r.Tone)}</span></div>
   <div class="row"><span class="label">PROM:</span><span class="val long">${_val(r.PROM)}</span></div>
   <div class="row"><span class="label">Other:</span><span class="val long">${_val(r.OtherPhysical)}</span></div>
@@ -2269,6 +2269,13 @@
     try {
       const obj = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : (jsonStr || {});
       return obj[key] !== undefined ? obj[key] : '';
+    } catch (_) { return ''; }
+  }
+
+  function _formatGradeMap(jsonStr) {
+    try {
+      const obj = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : (jsonStr || {});
+      return Object.entries(obj).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(', ');
     } catch (_) { return ''; }
   }
 
