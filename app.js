@@ -3065,19 +3065,72 @@ function getOpdFormData() {
 function handleOpdFormSubmit(onSuccessCallback) {
     showLoading('กำลังบันทึก OPD Card...');
     const record = getOpdFormData();
-    google.script.run.withSuccessHandler(response => {
-        if (response.status === 'success') {
-            showSuccessToast(response.message);
-            google.script.run.updateScheduleStatus(record.PatientID, record.VisitCount);
-            
-            // --- เพิ่มบรรทัดนี้เพื่อรีเฟรชข้อมูล Real-time ---
-            onSaveSuccess(); 
-            // ------------------------------------------
 
-            if (typeof onSuccessCallback === 'function') onSuccessCallback();
-            else showHistory('OPD');
-        } else { showError(response); }
-    }).withFailureHandler(showError).saveOpdRecord(record);
+    google.script.run
+        .withSuccessHandler(async response => {
+            if (response.status !== 'success') {
+                showError(response);
+                return;
+            }
+
+            showSuccessToast(response.message || 'บันทึก OPD สำเร็จ');
+
+            // Update appointment status independently. A schedule error must not
+            // affect the already-confirmed OPD save.
+            try {
+                google.script.run
+                    .withFailureHandler(err => console.warn('[OPD] updateScheduleStatus:', err))
+                    .updateScheduleStatus(record.PatientID, record.VisitCount);
+            } catch (_) {}
+
+            // Verify the exact saved row, then render the OPD history. This prevents
+            // the UI from returning to an apparently empty list after a successful save.
+            const refreshHistory = (attempt = 0) => {
+                google.script.run
+                    .withSuccessHandler(history => {
+                        if (history?.status === 'success') {
+                            const rows = Array.isArray(history.records) ? history.records : [];
+                            const savedId = response.recordId;
+                            const found = savedId ? rows.some(r => String(r.RecordID) === String(savedId)) : true;
+
+                            if (!found && attempt < 2) {
+                                setTimeout(() => refreshHistory(attempt + 1), 500);
+                                return;
+                            }
+
+                            renderOpdHistory(rows, 'ประวัติการบันทึก OPD',
+                                '<button class="btn btn-success btn-sm" onclick="openNewOpdForm()">สร้าง OPD Card ใหม่</button>');
+                            Swal.close();
+                            if (!found && savedId) {
+                                console.warn('[OPD] Save confirmed but record was not returned by history query:', savedId);
+                            }
+                        } else if (attempt < 2) {
+                            setTimeout(() => refreshHistory(attempt + 1), 500);
+                        } else {
+                            showError(history || { message: 'บันทึกสำเร็จ แต่ไม่สามารถโหลดประวัติ OPD ล่าสุดได้' });
+                        }
+                    })
+                    .withFailureHandler(err => {
+                        if (attempt < 2) setTimeout(() => refreshHistory(attempt + 1), 500);
+                        else showError(err);
+                    })
+                    .getOpdRecordsByPatientId(record.PatientID);
+            };
+
+            if (typeof onSuccessCallback === 'function') {
+                onSuccessCallback();
+            } else {
+                refreshHistory();
+            }
+
+            // Refresh global/dashboard state in the background. The OPD history above
+            // does not depend on getInitialData or calendar rendering.
+            try { onSaveSuccess(); } catch (err) {
+                console.warn('[OPD] background refresh warning:', err);
+            }
+        })
+        .withFailureHandler(showError)
+        .saveOpdRecord(record);
 }
 // (ในไฟล์ JavaScript.html)
 
