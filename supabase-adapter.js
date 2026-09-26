@@ -1247,6 +1247,8 @@
         QM_UE_Lt: 'QM_UE_LT',
         QM_LE_Rt: 'QM_LE_RT',
         QM_LE_Lt: 'QM_LE_LT',
+        HF_Side_Rt: 'HF_Side_RT',
+        HF_Side_Lt: 'HF_Side_LT',
         Joint_UE_Rt: 'Joint_UE_RT',
         Joint_UE_Lt: 'Joint_UE_LT',
         Joint_LE_Rt: 'Joint_LE_RT',
