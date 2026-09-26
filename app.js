@@ -141,6 +141,8 @@ function setupInitialUI(data) {
     clinicSettings = data.settings || {};
     allTherapists = data.therapists || [];
     allAddressData = data.addressData || [];
+    // [แก้ไข] เดิมไม่เคยเก็บค่านี้ลงตัวแปร global ทำให้ fillTherapistLicense() หาเลขที่ใบประกอบไม่เจอเสมอ
+    therapistLicenseMap = data.therapistLicenseMap || {};
     
     // สำคัญ: เก็บข้อมูลนัดหมายลง Global เพื่อใช้ใน Dashboard และปฏิทิน
     allScheduleData = data.schedules && data.schedules.records ? data.schedules.records : [];
@@ -178,6 +180,19 @@ function setupInitialUI(data) {
 // =================================================================
 function toBangkokDateStr(dateInput) { if (!dateInput) return ''; const d = new Date(dateInput); if (isNaN(d.getTime())) return ''; return d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Bangkok' }); }
 function fillTherapistLicense(selectEl, licenseInputId) { const licenseEl = document.getElementById(licenseInputId); if (!licenseEl) return; licenseEl.value = therapistLicenseMap[selectEl.value] || ''; }
+// [เพิ่ม] เลือกชื่อนักกายภาพบำบัดที่ล็อกอินอยู่ให้อัตโนมัติในฟอร์ม แล้วดึงเลขที่ใบประกอบวิชาชีพทันที
+// (เดิม fillTherapistLicense จะทำงานเมื่อผู้ใช้เปลี่ยน dropdown เองเท่านั้น ทำให้ฟอร์มใหม่ไม่มีเลขที่ใบประกอบจนกว่าจะเลือกซ้ำ)
+function autoSelectTherapistAndLicense(selectId, licenseInputId) {
+    const selectEl = document.getElementById(selectId);
+    if (!selectEl || !loggedInUser || !loggedInUser.fullName) return;
+    const cleanName = loggedInUser.fullName.trim();
+    const candidates = [cleanName, cleanName.startsWith('กภ.') ? cleanName : `กภ.${cleanName}`];
+    const match = Array.from(selectEl.options).find(o => candidates.includes(o.value));
+    if (match) {
+        selectEl.value = match.value;
+        fillTherapistLicense(selectEl, licenseInputId);
+    }
+}
 function formatThaiDateWithTime(date) {
     const months = ["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
     const day = date.getDate(), month = months[date.getMonth()], year = date.getFullYear() + 543;
@@ -2953,6 +2968,7 @@ function setupOpdForm() {
 
     document.querySelector('#opd-form input[name="PatientNameFull"]').value = currentPatient.PatientName;
     populateSelect('opdTherapistName', allTherapists, true);
+    autoSelectTherapistAndLicense('opdTherapistName', 'opdTherapistLicense');
 }
 function editOpdRecord(recordId) {
     showLoading('กำลังโหลดข้อมูล OPD Card...');
@@ -3496,6 +3512,24 @@ function populatePhysicalExamForm(record) {
     const equipmentOtherDetails = document.getElementById('equipment_other_details');
     if (equipmentOtherDetails) equipmentOtherDetails.style.display = equipmentValues.includes('Other') ? 'block' : 'none';
     form.querySelectorAll('input[name^="PE_"]').forEach(cb => { if(record[cb.name]) { cb.checked = true; document.getElementById(cb.id.replace('check', 'details')).style.display = 'block'; } });
+
+    // Gross Motor Function grid
+    ['MoveUp', 'MoveDown', 'MoveRight', 'MoveLeft', 'SubSideLying', 'SideLyingSit', 'SitStand'].forEach(key => {
+        const val = record[`GM_${key}`];
+        if (val) { const r = form.querySelector(`input[name="GM_${key}"][value="${val}"]`); if (r) r.checked = true; }
+    });
+    // Hand Function grid
+    ['Reaching', 'GraspRelease', 'PassObj', 'ThumbOpp', 'PinchGrasp'].forEach(key => {
+        const val = record[`HF_${key}`];
+        if (val) { const r = form.querySelector(`input[name="HF_${key}"][value="${val}"]`); if (r) r.checked = true; }
+    });
+    const hfSideRt = form.querySelector('input[name="HF_Side_Rt"]'); if (hfSideRt) hfSideRt.checked = !!record.HF_Side_RT;
+    const hfSideLt = form.querySelector('input[name="HF_Side_Lt"]'); if (hfSideLt) hfSideLt.checked = !!record.HF_Side_LT;
+    // Balance grid
+    ['SitStatic', 'SitDynamic', 'StandStatic', 'StandDynamic'].forEach(key => {
+        const val = record[`Bal_${key}`];
+        if (val) { const r = form.querySelector(`input[name="Bal_${key}"][value="${val}"]`); if (r) r.checked = true; }
+    });
     try {
         const gaitDetails = JSON.parse(record.GaitAnalysis_Details || '{}');
         for (const p in gaitDetails) { const cb = form.querySelector(`input[name="GaitAnalysis_Phase"][value="${p}"]`); if (cb) cb.checked = true; const sel = form.querySelector(`select[name="GaitAnalysis_Grade_${p.replace(/\s+/g, '')}"]`); if (sel) sel.value = gaitDetails[p]; }
@@ -3506,7 +3540,10 @@ function populatePhysicalExamForm(record) {
         const jLE = JSON.parse(record.JointSensation_LE_Details || '{}');
         for(const k in jLE) { const sel = form.querySelector(`[name="${k.replace(/\s+/g, '_')}_LE"]`); if(sel) sel.value = jLE[k]; }
         const bal = JSON.parse(record.Balance || '{}');
-        if(bal.Sitting) form.querySelector('[name="Balance_Sitting"]').value = bal.Sitting; if(bal.Standing) form.querySelector('[name="Balance_Standing"]').value = bal.Standing;
+        // [แก้ไข] เดิมอ้างอิง select Balance_Sitting/Balance_Standing ที่ไม่มีอยู่จริงแล้ว (ถูกแทนที่ด้วยตาราง Bal_* ซึ่ง restore แยกไว้ใน populateOpdForm)
+        // ทำให้เปิดแก้ไข OPD Card ที่มีข้อมูล Balance ค้างอยู่แล้ว error แบบเดียวกับตอนบันทึก
+        const balSittingEl = form.querySelector('[name="Balance_Sitting"]'); if (balSittingEl && bal.Sitting) balSittingEl.value = bal.Sitting;
+        const balStandingEl = form.querySelector('[name="Balance_Standing"]'); if (balStandingEl && bal.Standing) balStandingEl.value = bal.Standing;
         
         // --- START: นี่คือจุดแก้ไข ---
         // ส่ง 'opd-form' เป็นพารามิเตอร์แรก
@@ -3560,23 +3597,59 @@ function getPhysicalExamData() {
     data.EquipmentOther = equipmentValues.includes('Other') ? (form.querySelector('[name="EquipmentOther"]').value || '').trim() : '';
     form.querySelectorAll('input[name^="PE_"]').forEach(cb => data[cb.name] = cb.checked);
 
-    // --- NEW Bed Mobility & Gross Motor Data Gathering ---
-    const bedMobilityInd = form.querySelector('[name="BedMobility_Independent"]').value;
-    const bedMobilityDep = form.querySelector('[name="BedMobility_Dependent"]').value;
-    data.BedMobility = [bedMobilityInd, bedMobilityDep].filter(Boolean).join(', ');
+    // --- Gross Motor Function grid (GM_MoveUp / GM_MoveDown / ... radios) ---
+    // [แก้ไข] ฟิลด์เดิม BedMobility_Independent/Dependent และ GrossMotor_SideLying/SitToStand
+    // ถูกแทนที่ด้วยตาราง Gross Motor Function แล้ว แต่โค้ดเดิมยังอ้างอิง input ที่ไม่มีอยู่จริง
+    // ทำให้ querySelector คืนค่า null แล้ว .value กับ null ทำให้เกิด "Cannot read properties of null (reading 'value')"
+    const gmFields = [
+        { key: 'MoveUp', label: 'Move Up' }, { key: 'MoveDown', label: 'Move Down' },
+        { key: 'MoveRight', label: 'Move Right' }, { key: 'MoveLeft', label: 'Move Left' },
+        { key: 'SubSideLying', label: 'Sub-side lying' }, { key: 'SideLyingSit', label: 'Side lying-sit' },
+        { key: 'SitStand', label: 'Sit-stand' }
+    ];
+    const gmData = {};
+    gmFields.forEach(({ key }) => {
+        const sel = form.querySelector(`input[name="GM_${key}"]:checked`);
+        data[`GM_${key}`] = sel ? sel.value : '';
+        if (sel) gmData[key] = sel.value;
+    });
+    data.GrossMotorFunction = JSON.stringify(gmData);
+    data.GrossMotor = gmFields.filter(f => gmData[f.key]).map(f => `${f.label}: ${gmData[f.key]}`).join(', ');
 
-    const grossMotorSide = form.querySelector('[name="GrossMotor_SideLying"]').value;
-    const grossMotorSit = form.querySelector('[name="GrossMotor_SitToStand"]').value;
-    data.GrossMotor = [
-        grossMotorSide ? `Side lying to sitting: ${grossMotorSide}` : '',
-        grossMotorSit ? `Sit to stand: ${grossMotorSit}` : ''
-    ].filter(Boolean).join('; ');
+    // --- Hand Function grid (HF_Reaching / HF_GraspRelease / ... radios) ---
+    const hfKeys = ['Reaching', 'GraspRelease', 'PassObj', 'ThumbOpp', 'PinchGrasp'];
+    const hfData = {};
+    hfKeys.forEach(key => {
+        const sel = form.querySelector(`input[name="HF_${key}"]:checked`);
+        data[`HF_${key}`] = sel ? sel.value : '';
+        if (sel) hfData[key] = sel.value;
+    });
+    data.HandFunction = JSON.stringify(hfData);
+    data.HF_Side_RT = !!(form.querySelector('input[name="HF_Side_Rt"]')?.checked);
+    data.HF_Side_LT = !!(form.querySelector('input[name="HF_Side_Lt"]')?.checked);
 
-    // --- ส่วนที่เหลือเหมือนเดิม ---
+    // --- Balance grid (Bal_SitStatic / Bal_SitDynamic / Bal_StandStatic / Bal_StandDynamic radios) ---
+    const balFields = [
+        { key: 'SitStatic', label: 'Sitting-static' }, { key: 'SitDynamic', label: 'Sitting-dynamic' },
+        { key: 'StandStatic', label: 'Standing-static' }, { key: 'StandDynamic', label: 'Standing-dynamic' }
+    ];
+    const balData = {};
+    balFields.forEach(({ key }) => {
+        const sel = form.querySelector(`input[name="Bal_${key}"]:checked`);
+        data[`Bal_${key}`] = sel ? sel.value : '';
+        if (sel) balData[key] = sel.value;
+    });
+    data.BalanceGrid = JSON.stringify(balData);
+    // เก็บรูปแบบเดิม {Sitting, Standing} ไว้ด้วย เพื่อให้ใบพิมพ์ (print template) เดิมยังอ่านได้
+    data.Balance = JSON.stringify({
+        Sitting: [balData.SitStatic && `static: ${balData.SitStatic}`, balData.SitDynamic && `dynamic: ${balData.SitDynamic}`].filter(Boolean).join(', '),
+        Standing: [balData.StandStatic && `static: ${balData.StandStatic}`, balData.StandDynamic && `dynamic: ${balData.StandDynamic}`].filter(Boolean).join(', ')
+    });
+
+    // --- ส่วนที่เหลือเหมือนเดิม (เพิ่ม optional chaining กันพลาดกรณีไม่พบ element) ---
     const gait = {}; form.querySelectorAll('input[name="GaitAnalysis_Phase"]:checked').forEach(cb => { const p = cb.value; const sel = form.querySelector(`select[name="GaitAnalysis_Grade_${p.replace(/\s+/g, '')}"]`); gait[p] = sel ? sel.value : 'N/A'; }); data.GaitAnalysis_Details = JSON.stringify(gait);
-    data.QualityMovement = JSON.stringify({ UE: { Rt: form.querySelector('[name="QM_UE_Rt"]').value, Lt: form.querySelector('[name="QM_UE_Lt"]').value }, LE: { Rt: form.querySelector('[name="QM_LE_Rt"]').value, Lt: form.querySelector('[name="QM_LE_Lt"]').value } });
-    const getJoint = (l) => ({ 'Rt. Joint': form.querySelector(`[name="Joint_${l}_Rt"]`).value, 'Rt. Sensation': form.querySelector(`[name="Sensation_${l}_Rt"]`).value, 'Lt. Joint': form.querySelector(`[name="Joint_${l}_Lt"]`).value, 'Lt. Sensation': form.querySelector(`[name="Sensation_${l}_Lt"]`).value }); data.JointSensation_UE_Details = JSON.stringify(getJoint('UE')); data.JointSensation_LE_Details = JSON.stringify(getJoint('LE'));
-    data.Balance = JSON.stringify({ Sitting: form.querySelector('[name="Balance_Sitting"]').value, Standing: form.querySelector('[name="Balance_Standing"]').value });
+    data.QualityMovement = JSON.stringify({ UE: { Rt: form.querySelector('[name="QM_UE_Rt"]')?.value || '', Lt: form.querySelector('[name="QM_UE_Lt"]')?.value || '' }, LE: { Rt: form.querySelector('[name="QM_LE_Rt"]')?.value || '', Lt: form.querySelector('[name="QM_LE_Lt"]')?.value || '' } });
+    const getJoint = (l) => ({ 'Rt. Joint': form.querySelector(`[name="Joint_${l}_Rt"]`)?.value || '', 'Rt. Sensation': form.querySelector(`[name="Sensation_${l}_Rt"]`)?.value || '', 'Lt. Joint': form.querySelector(`[name="Joint_${l}_Lt"]`)?.value || '', 'Lt. Sensation': form.querySelector(`[name="Sensation_${l}_Lt"]`)?.value || '' }); data.JointSensation_UE_Details = JSON.stringify(getJoint('UE')); data.JointSensation_LE_Details = JSON.stringify(getJoint('LE'));
 
     // --- START: นี่คือจุดแก้ไขที่สำคัญ ---
     // ส่ง 'opd-form' เข้าไปเป็นพารามิเตอร์แรก
@@ -3657,6 +3730,7 @@ function setupSoapForm() {
     createSoapTreatmentHtml('soap-treatment-container', currentPatient.IMCDx);
     formContainer.querySelector('input[name="PatientNameFull"]').value = currentPatient.PatientName;
     populateSelect('soapTherapistName', allTherapists, true);
+    autoSelectTherapistAndLicense('soapTherapistName', 'soapTherapistLicense');
 
     // Initialize signature pads
     initializeSignaturePad('soapTherapistSignatureCanvas', 'soapTherapist');
