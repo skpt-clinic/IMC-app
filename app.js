@@ -3428,7 +3428,7 @@ function createGaitAnalysisHtml() {
         <div class="form-check form-check-inline">
             <input class="form-check-input" type="checkbox" name="GaitAnalysis_Phase" value="${phase}">
             <label class="form-check-label">${phase}</label>
-            <select name="GaitAnalysis_Grade_${phase.replace(/\s+/g, '')}" class="form-select form-select-sm ms-2" style="width: auto; display: inline-block;">
+            <select name="GaitAnalysis_Grade_${getGaitPhaseKey(phase)}" class="form-select form-select-sm ms-2" style="width: auto; display: inline-block;">
                 <option value="">เลือก...</option>
                 ${grades.map(g => `<option value="${g}">${g}</option>`).join('')}
             </select>
@@ -3583,7 +3583,7 @@ function populatePhysicalExamForm(record) {
     });
     try {
         const gaitDetails = JSON.parse(record.GaitAnalysis_Details || '{}');
-        for (const p in gaitDetails) { const cb = form.querySelector(`input[name="GaitAnalysis_Phase"][value="${p}"]`); if (cb) cb.checked = true; const sel = form.querySelector(`select[name="GaitAnalysis_Grade_${p.replace(/\s+/g, '')}"]`); if (sel) sel.value = gaitDetails[p]; }
+        for (const p in gaitDetails) { const cb = form.querySelector(`input[name="GaitAnalysis_Phase"][value="${p}"]`); if (cb) cb.checked = true; const sel = form.querySelector(`select[name="GaitAnalysis_Grade_${getGaitPhaseKey(p)}"]`); if (sel) sel.value = gaitDetails[p]; }
         const qm = JSON.parse(record.QualityMovement || '{}');
         for(const l in qm) { for(const s in qm[l]) { const sel = form.querySelector(`[name="QM_${l}_${s}"]`); if(sel) sel.value = qm[l][s]; } }
         const jUE = JSON.parse(record.JointSensation_UE_Details || '{}');
@@ -3698,7 +3698,7 @@ function getPhysicalExamData() {
     });
 
     // --- ส่วนที่เหลือเหมือนเดิม (เพิ่ม optional chaining กันพลาดกรณีไม่พบ element) ---
-    const gait = {}; form.querySelectorAll('input[name="GaitAnalysis_Phase"]:checked').forEach(cb => { const p = cb.value; const sel = form.querySelector(`select[name="GaitAnalysis_Grade_${p.replace(/\s+/g, '')}"]`); gait[p] = sel ? sel.value : 'N/A'; }); data.GaitAnalysis_Details = JSON.stringify(gait);
+    const gait = {}; form.querySelectorAll('input[name="GaitAnalysis_Phase"]:checked').forEach(cb => { const p = cb.value; const sel = form.querySelector(`select[name="GaitAnalysis_Grade_${getGaitPhaseKey(p)}"]`); gait[p] = sel ? sel.value : 'N/A'; }); data.GaitAnalysis_Details = JSON.stringify(gait);
     data.QualityMovement = JSON.stringify({ UE: { Rt: form.querySelector('[name="QM_UE_Rt"]')?.value || '', Lt: form.querySelector('[name="QM_UE_Lt"]')?.value || '' }, LE: { Rt: form.querySelector('[name="QM_LE_Rt"]')?.value || '', Lt: form.querySelector('[name="QM_LE_Lt"]')?.value || '' } });
     const getJoint = (l) => ({ 'Rt. Joint': form.querySelector(`[name="Joint_${l}_Rt"]`)?.value || '', 'Rt. Sensation': form.querySelector(`[name="Sensation_${l}_Rt"]`)?.value || '', 'Lt. Joint': form.querySelector(`[name="Joint_${l}_Lt"]`)?.value || '', 'Lt. Sensation': form.querySelector(`[name="Sensation_${l}_Lt"]`)?.value || '' }); data.JointSensation_UE_Details = JSON.stringify(getJoint('UE')); data.JointSensation_LE_Details = JSON.stringify(getJoint('LE'));
 
