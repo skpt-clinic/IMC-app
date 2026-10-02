@@ -150,6 +150,33 @@
     return val === true || String(val).toUpperCase() === 'TRUE';
   }
 
+  // HTML form controls always serialize an unfilled field as an empty string.
+  // PostgreSQL does not coerce '' to numeric types (double precision, integer,
+  // etc.), which made otherwise optional values reject the whole insert.  Use
+  // SQL NULL for empty controls while retaining deliberate false/0 values.
+  function normalizeDatabasePayload(value) {
+    if (value === '') return null;
+    if (Array.isArray(value)) return value.map(normalizeDatabasePayload);
+    if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+      return Object.fromEntries(
+        Object.entries(value)
+          .filter(([, item]) => item !== undefined)
+          .map(([key, item]) => [key, normalizeDatabasePayload(item)])
+      );
+    }
+    return value;
+  }
+
+  async function recordExists(table, idColumn, id) {
+    const { data, error } = await client
+      .from(table)
+      .select(idColumn)
+      .eq(idColumn, id)
+      .maybeSingle();
+    if (error) throw error;
+    return !!data;
+  }
+
   function getCombinedImpairmentText(record) {
     if (!record) return "-";
     const parts = [];
@@ -805,6 +832,7 @@
 
     async savePatient(patientObject) {
       try {
+        patientObject = normalizeDatabasePayload(patientObject);
         const targetId = patientObject.PatientID || crypto.randomUUID();
         if (patientObject.photoData) {
           patientObject.PatientPhotoURL = await uploadPatientPhoto(targetId, patientObject.photoData);
@@ -1138,7 +1166,7 @@
     },
     async saveTMSERecord(data) {
       try {
-        const record = { ...data };
+        const record = normalizeDatabasePayload(data);
         if (!record.PatientID) throw new Error('ไม่พบ PatientID');
         if (!record.RecordID) { record.RecordID = 'TMSE' + Date.now(); record.Timestamp = new Date().toISOString(); }
         const res = await client.from('TMSE_Records').select('RecordID').eq('RecordID', record.RecordID).limit(1);
@@ -1158,7 +1186,7 @@
     },
     async saveMHQRecord(data) {
       try {
-        const record = { ...data };
+        const record = normalizeDatabasePayload(data);
         if (!record.PatientID) throw new Error('ไม่พบ PatientID');
         if (!record.RecordID) { record.RecordID = 'MHQ' + Date.now(); record.Timestamp = new Date().toISOString(); }
         const existing = await client.from('MHQ_Records').select('RecordID').eq('RecordID', record.RecordID).limit(1);
@@ -1178,7 +1206,7 @@
     },
     async saveDysphagiaRecord(data) {
       try {
-        const record = { ...data };
+        const record = normalizeDatabasePayload(data);
         if (!record.PatientID) throw new Error('ไม่พบ PatientID');
         if (!record.RecordID) { record.RecordID = 'DYS' + Date.now(); record.Timestamp = new Date().toISOString(); }
         const existing = await client.from('Dysphagia_Records').select('RecordID').eq('RecordID', record.RecordID).limit(1);
@@ -1278,9 +1306,7 @@
         // Normalize all known OPD column-casing aliases before PATCH/INSERT.
         // PostgreSQL quoted identifiers are case-sensitive, so e.g. Heeloff !== HeelOff.
         const normalizedData = this.normalizeOpdRecordColumnNames(data);
-        const record = Object.fromEntries(
-          Object.entries({ ...normalizedData }).filter(([, value]) => value !== undefined)
-        );
+        const record = normalizeDatabasePayload(normalizedData);
         const pid = record.PatientID || 'unknown';
 
         if (record.BodyChartDrawingBase64 && record.BodyChartDrawingBase64.startsWith('data:image/')) {
@@ -1296,15 +1322,16 @@
         delete record.TherapistSignatureBase64;
         delete record.PatientSignatureBase64;
 
-        let res;
-        if (record.RecordID) {
-          res = await client.from('OPDRecords').update(record).eq('RecordID', record.RecordID);
+        if (!record.RecordID) record.RecordID = `OPD${Date.now()}`;
+        const exists = await recordExists('OPDRecords', 'RecordID', record.RecordID);
+        if (exists) {
+          const res = await client.from('OPDRecords').update(record).eq('RecordID', record.RecordID);
+          if (res.error) throw res.error;
         } else {
-          record.RecordID = `OPD${Date.now()}`;
-          record.Timestamp = new Date().toISOString();
-          res = await client.from('OPDRecords').insert([record]);
+          record.Timestamp = record.Timestamp || new Date().toISOString();
+          const res = await client.from('OPDRecords').insert([record]);
+          if (res.error) throw res.error;
         }
-        if (res.error) throw res.error;
         return { status: 'success', message: 'บันทึกข้อมูล OPD Card สำเร็จ', recordId: record.RecordID };
       } catch (e) {
         return { status: 'error', message: e.message };
@@ -1334,7 +1361,7 @@
 
     async saveSOAPNote(data) {
       try {
-        const record = { ...data };
+        const record = normalizeDatabasePayload(data);
         const pid = record.PatientID || 'unknown';
 
         if (record.TherapistSignatureBase64 && record.TherapistSignatureBase64.startsWith('data:image/')) {
@@ -1346,15 +1373,16 @@
         delete record.TherapistSignatureBase64;
         delete record.PatientSignatureBase64;
 
-        let res;
-        if (record.SOAPNoteID) {
-          res = await client.from('SOAPNotes').update(record).eq('SOAPNoteID', record.SOAPNoteID);
+        if (!record.SOAPNoteID) record.SOAPNoteID = `SOAP${Date.now()}`;
+        const exists = await recordExists('SOAPNotes', 'SOAPNoteID', record.SOAPNoteID);
+        if (exists) {
+          const res = await client.from('SOAPNotes').update(record).eq('SOAPNoteID', record.SOAPNoteID);
+          if (res.error) throw res.error;
         } else {
-          record.SOAPNoteID = `SOAP${Date.now()}`;
-          record.Timestamp = new Date().toISOString();
-          res = await client.from('SOAPNotes').insert([record]);
+          record.Timestamp = record.Timestamp || new Date().toISOString();
+          const res = await client.from('SOAPNotes').insert([record]);
+          if (res.error) throw res.error;
         }
-        if (res.error) throw res.error;
         return { status: 'success', message: 'บันทึกข้อมูล SOAP Note สำเร็จ', recordId: record.SOAPNoteID };
       } catch (e) {
         return { status: 'error', message: e.message };
@@ -1398,7 +1426,7 @@
 
     async saveBIAssessment(data) {
       try {
-        const record = { ...data };
+        const record = normalizeDatabasePayload(data);
         let res;
         if (record.AssessmentID) {
           res = await client.from('BIAssessments').update(record).eq('AssessmentID', record.AssessmentID);
@@ -1436,7 +1464,7 @@
 
     async saveConsent(data) {
       try {
-        const record = { ...data };
+        const record = normalizeDatabasePayload(data);
         const pid = record.PatientID || 'unknown';
 
         if (record.ConsenterSignatureBase64 && record.ConsenterSignatureBase64.startsWith('data:image/')) {

@@ -19,15 +19,26 @@
   function getPatientId(form) {
     const fromForm = form?.querySelector('[name="PatientID"]')?.value?.trim() || '';
     if (fromForm) return fromForm;
+    const fromDataset = String(form?.dataset?.patientId || '').trim();
+    if (fromDataset) return fromDataset;
     if (typeof window.getCurrentPatientIdForEvidence === 'function') {
       const id = String(window.getCurrentPatientIdForEvidence() || '').trim();
       if (id) return id;
     }
+    // currentPatient is declared with top-level `let` in app.js, so it is not
+    // guaranteed to be a property of window.  Read the lexical binding too.
+    try {
+      if (typeof currentPatient !== 'undefined' && currentPatient?.PatientID) {
+        return String(currentPatient.PatientID).trim();
+      }
+    } catch (_) {}
     return String(window.currentPatient?.PatientID || '').trim();
   }
 
   function injectUI(form, type) {
     if (!form) return;
+    const patientId = getPatientId(form);
+    if (patientId) form.dataset.patientId = patientId;
     if (boundForms[type] !== form) {
       boundForms[type] = form;
       state[type] = [];

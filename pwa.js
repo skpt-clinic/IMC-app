@@ -135,19 +135,19 @@
   document.head.appendChild(patientListFixScript);
 
   const bodyChartSupabaseScript = document.createElement('script');
-  bodyChartSupabaseScript.src = './body-chart-supabase.js?v=20260913_1';
+  bodyChartSupabaseScript.src = './body-chart-supabase.js?v=20261002_1';
   bodyChartSupabaseScript.async = false;
   document.head.appendChild(bodyChartSupabaseScript);
 
   // Geolocation wrapper must load after Body Chart so it wraps the final OPD/SOAP submit handlers.
   const geolocationSupabaseScript = document.createElement('script');
-  geolocationSupabaseScript.src = './geolocation-supabase.js?v=20260913_2';
+  geolocationSupabaseScript.src = './geolocation-supabase.js?v=20261002_1';
   geolocationSupabaseScript.async = false;
   document.head.appendChild(geolocationSupabaseScript);
 
   // Visit evidence wrapper must load last so it wraps the final geolocation-aware submit handlers.
   const visitEvidenceScript = document.createElement('script');
-  visitEvidenceScript.src = './visit-evidence.js?v=20260913_1';
+  visitEvidenceScript.src = './visit-evidence.js?v=20261002_1';
   visitEvidenceScript.async = false;
   document.head.appendChild(visitEvidenceScript);
 
