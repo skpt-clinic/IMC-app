@@ -938,21 +938,26 @@
     async saveSchedules(data) {
       try {
         const { patientId, dates } = data;
-        // Delete current schedules
-        await client.from('Schedules').delete().eq('PatientID', patientId);
+        if (!patientId) throw new Error('ไม่พบ PatientID');
 
         const newSchedules = [];
         (dates || []).forEach((dateStr, idx) => {
           if (dateStr) {
+            const scheduledDate = new Date(`${dateStr}T00:00:00+07:00`);
+            if (Number.isNaN(scheduledDate.getTime())) throw new Error(`วันที่นัดหมายไม่ถูกต้อง: ${dateStr}`);
             newSchedules.push({
               ScheduleID: `SCH${Date.now()}${idx + 1}`,
               PatientID: patientId,
               VisitNumber: idx + 1,
-              ScheduledDate: new Date(dateStr + 'T00:00:00+07:00').toISOString(),
+              ScheduledDate: scheduledDate.toISOString(),
               Status: 'Scheduled'
             });
           }
         });
+
+        // Validate the replacement before removing existing appointments.
+        const { error: deleteError } = await client.from('Schedules').delete().eq('PatientID', patientId);
+        if (deleteError) throw deleteError;
 
         if (newSchedules.length > 0) {
           const { error } = await client.from('Schedules').insert(newSchedules);
@@ -980,10 +985,12 @@
     async updateScheduleStatus(patientId, visitCount) {
       try {
         const vNum = Number(visitCount);
+        if (!patientId || !Number.isInteger(vNum) || vNum < 1) throw new Error('ข้อมูลครั้งที่เยี่ยมไม่ถูกต้อง');
         const { error } = await client.from('Schedules')
           .update({ Status: 'Completed' })
           .eq('PatientID', patientId)
           .eq('VisitNumber', vNum);
+        if (error) throw error;
         return { status: 'success' };
       } catch (e) {
         return { status: 'error', message: e.message };
@@ -993,10 +1000,11 @@
     async saveScheduleOrder(updates) {
       try {
         for (const u of (updates || [])) {
-          await client.from('Schedules')
+          const { error } = await client.from('Schedules')
             .update({ QueueIndex: u.queueIndex, Zone: u.zone })
             .eq('PatientID', u.patientId)
             .eq('VisitNumber', u.visitNumber);
+          if (error) throw error;
         }
         return { status: 'success' };
       } catch (e) {
@@ -1220,10 +1228,13 @@
     async getNextVisitCount(patientId) {
       try {
         const pid = String(patientId).trim();
+        if (!pid) throw new Error('ไม่พบ PatientID');
         const [opdRes, soapRes] = await Promise.all([
           client.from('OPDRecords').select('VisitCount').eq('PatientID', pid),
           client.from('SOAPNotes').select('VisitCount').eq('PatientID', pid)
         ]);
+        if (opdRes.error) throw opdRes.error;
+        if (soapRes.error) throw soapRes.error;
         const completedCount = (opdRes.data?.length || 0) + (soapRes.data?.length || 0);
         return { status: 'success', visitCount: completedCount + 1 };
       } catch (e) {
@@ -1510,10 +1521,12 @@
 
         if (!patientId || !visitDate) throw new Error("Missing patientId or visitDate");
 
-        await Promise.all([
+        const results = await Promise.all([
           client.from('OPDRecords').update({ BudgetStatus: budgetStatus }).eq('PatientID', patientId).eq('VisitDate', visitDate),
           client.from('SOAPNotes').update({ BudgetStatus: budgetStatus }).eq('PatientID', patientId).eq('VisitDate', visitDate)
         ]);
+        const failed = results.find(result => result.error);
+        if (failed) throw failed.error;
 
         return { status: 'success', budgetStatus };
       } catch (e) {

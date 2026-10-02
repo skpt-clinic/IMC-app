@@ -2656,8 +2656,17 @@ function openNewConsentForm() {
     initializeSignaturePad('witnessSignatureCanvas', 'witness');
     
     document.querySelector('input[name="ConsentDate"]').value = toBangkokDateStr(new Date());
-    google.script.run.withSuccessHandler(visitCount => {
-        document.querySelector('input[name="VisitCount"]').value = visitCount;
+    google.script.run.withSuccessHandler(response => {
+        // Supabase returns { status, visitCount }, while the original GAS
+        // function returned the number directly. Do not put an object into a
+        // number input: browsers clear it and Postgres then receives ''.
+        const visitCount = typeof response === 'object' ? response?.visitCount : response;
+        const input = document.querySelector('input[name="VisitCount"]');
+        if (input && Number.isInteger(Number(visitCount)) && Number(visitCount) > 0) {
+            input.value = String(Number(visitCount));
+        } else {
+            showError(response || { message: 'ไม่สามารถกำหนดครั้งที่เยี่ยมได้' });
+        }
     }).getNextVisitCount(currentPatient.PatientID);
 
     document.querySelectorAll('input[name="ConsenterType"]').forEach(radio => {
@@ -2806,7 +2815,15 @@ function openNewBIAssessmentForm() {
     formContainer.style.display = 'block';
 
     document.querySelector('input[name="AssessmentDate"]').value = toBangkokDateStr(new Date());
-    google.script.run.withSuccessHandler(visitCount => { document.querySelector('input[name="VisitCount"]').value = visitCount; }).getNextVisitCount(currentPatient.PatientID);
+    google.script.run.withSuccessHandler(response => {
+        const visitCount = typeof response === 'object' ? response?.visitCount : response;
+        const input = document.querySelector('input[name="VisitCount"]');
+        if (input && Number.isInteger(Number(visitCount)) && Number(visitCount) > 0) {
+            input.value = String(Number(visitCount));
+        } else {
+            showError(response || { message: 'ไม่สามารถกำหนดครั้งที่เยี่ยมได้' });
+        }
+    }).getNextVisitCount(currentPatient.PatientID);
 }
 function editBIAssessment(assessmentId) {
     showLoading('กำลังโหลดข้อมูล...');
