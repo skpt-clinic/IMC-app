@@ -955,13 +955,22 @@
           }
         });
 
-        // Validate the replacement before removing existing appointments.
+        // Backup existing schedules before deletion to recover in case network fails during insert
+        const { data: oldSchedules } = await client.from('Schedules').select('*').eq('PatientID', patientId);
+
+        // Remove existing appointments
         const { error: deleteError } = await client.from('Schedules').delete().eq('PatientID', patientId);
         if (deleteError) throw deleteError;
 
         if (newSchedules.length > 0) {
-          const { error } = await client.from('Schedules').insert(newSchedules);
-          if (error) throw error;
+          const { error: insertError } = await client.from('Schedules').insert(newSchedules);
+          if (insertError) {
+            // Attempt rollback: restore original schedules if insert failed
+            if (oldSchedules && oldSchedules.length > 0) {
+              await client.from('Schedules').insert(oldSchedules).catch(() => {});
+            }
+            throw new Error(`บันทึกตารางนัดหมายไม่สำเร็จ: ${insertError.message}`);
+          }
         }
 
         return { status: 'success', message: 'บันทึกตารางเยี่ยมสำเร็จ!' };
@@ -1001,7 +1010,7 @@
       try {
         for (const u of (updates || [])) {
           const { error } = await client.from('Schedules')
-            .update({ QueueIndex: u.queueIndex, Zone: u.zone })
+            .update({ QueueIndex: u.queueIndex, ScheduleZone: u.zone })
             .eq('PatientID', u.patientId)
             .eq('VisitNumber', u.visitNumber);
           if (error) throw error;
