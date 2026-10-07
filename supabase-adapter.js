@@ -177,6 +177,78 @@
     return !!data;
   }
 
+  // ---------------------------------------------------------------------------
+  // Self-Healing Save — automatically strips unknown columns and retries.
+  // PostgREST returns PGRST204 / error code when a payload field does not exist
+  // in the schema cache.  Rather than failing the entire save, we remove the
+  // offending column and retry, logging every dropped column to console.warn so
+  // developers can track and fix the root cause later.
+  //
+  // Usage:
+  //   saveWithUnknownColumnRetry(table, record, matchColumn, isUpdate)
+  //   saveWithUnknownColumnRetry(table, rowArray)   ← bulk insert variant
+  // ---------------------------------------------------------------------------
+  async function saveWithUnknownColumnRetry(table, payload, matchColumn, isUpdate) {
+    const MAX_RETRIES = 30; // guard against infinite loops
+
+    // Helper to extract bad column name from PostgREST / Postgres error text
+    function extractBadColumn(err) {
+      if (!err) return null;
+      const msg = err.message || (typeof err === 'string' ? err : '');
+      let m = msg.match(/Could not find the ['"\`]?([^'"\`\s]+)['"\`]? column of/i);
+      if (m && m[1]) return m[1];
+      m = msg.match(/column ['"\`]?([^'"\`\s]+)['"\`]?.*?(?:does not exist|in the schema cache)/i);
+      if (m && m[1]) return m[1];
+      return null;
+    }
+
+    // --- Bulk insert variant ---
+    if (Array.isArray(payload)) {
+      const stripped = [];
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        const res = await client.from(table).insert(payload);
+        if (!res.error) {
+          if (stripped.length) console.warn(`[SelfHealingSave] '${table}' bulk insert — stripped columns:`, stripped);
+          return { data: res.data, error: null };
+        }
+        const bad = extractBadColumn(res.error);
+        if (bad && payload.some(r => Object.prototype.hasOwnProperty.call(r, bad))) {
+          console.warn(`[SelfHealingSave] '${table}' bulk — stripping unknown column '${bad}'`);
+          payload.forEach(r => { delete r[bad]; });
+          stripped.push(bad);
+          continue;
+        }
+        return res; // non-column error — propagate as-is
+      }
+      return { data: null, error: new Error(`[SelfHealingSave] Exceeded retry limit for '${table}' bulk insert`) };
+    }
+
+    // --- Single-record variant ---
+    const record = payload;
+    const stripped = [];
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+      let res;
+      if (isUpdate) {
+        res = await client.from(table).update(record).eq(matchColumn, record[matchColumn]);
+      } else {
+        res = await client.from(table).insert([record]);
+      }
+      if (!res.error) {
+        if (stripped.length) console.warn(`[SelfHealingSave] '${table}' — stripped columns:`, stripped);
+        return { data: res.data, error: null };
+      }
+      const bad = extractBadColumn(res.error);
+      if (bad && Object.prototype.hasOwnProperty.call(record, bad)) {
+        console.warn(`[SelfHealingSave] '${table}' — stripping unknown column '${bad}' (attempt ${attempt + 1})`);
+        delete record[bad];
+        stripped.push(bad);
+        continue;
+      }
+      return res; // non-column error — propagate as-is
+    }
+    return { data: null, error: new Error(`[SelfHealingSave] Exceeded retry limit for '${table}'`) };
+  }
+
   function getCombinedImpairmentText(record) {
     if (!record) return "-";
     const parts = [];
@@ -1185,10 +1257,9 @@
       try {
         const record = normalizeDatabasePayload(data);
         if (!record.PatientID) throw new Error('ไม่พบ PatientID');
-        if (!record.RecordID) { record.RecordID = 'TMSE' + Date.now(); record.Timestamp = new Date().toISOString(); }
-        const res = await client.from('TMSE_Records').select('RecordID').eq('RecordID', record.RecordID).limit(1);
-        if (res.error) throw res.error;
-        const write = res.data && res.data.length ? await client.from('TMSE_Records').update(record).eq('RecordID', record.RecordID) : await client.from('TMSE_Records').insert([record]);
+        if (!record.RecordID) record.RecordID = 'TMSE' + Date.now();
+        const exists = await recordExists('TMSE_Records', 'RecordID', record.RecordID);
+        const write = await saveWithUnknownColumnRetry('TMSE_Records', record, 'RecordID', exists);
         if (write.error) throw write.error;
         return { status: 'success', message: 'บันทึก TMSE สำเร็จ', recordId: record.RecordID };
       } catch (e) { return { status: 'error', message: e.message }; }
@@ -1205,10 +1276,9 @@
       try {
         const record = normalizeDatabasePayload(data);
         if (!record.PatientID) throw new Error('ไม่พบ PatientID');
-        if (!record.RecordID) { record.RecordID = 'MHQ' + Date.now(); record.Timestamp = new Date().toISOString(); }
-        const existing = await client.from('MHQ_Records').select('RecordID').eq('RecordID', record.RecordID).limit(1);
-        if (existing.error) throw existing.error;
-        const write = existing.data && existing.data.length ? await client.from('MHQ_Records').update(record).eq('RecordID', record.RecordID) : await client.from('MHQ_Records').insert([record]);
+        if (!record.RecordID) record.RecordID = 'MHQ' + Date.now();
+        const exists = await recordExists('MHQ_Records', 'RecordID', record.RecordID);
+        const write = await saveWithUnknownColumnRetry('MHQ_Records', record, 'RecordID', exists);
         if (write.error) throw write.error;
         return { status: 'success', message: 'บันทึก MHQ สำเร็จ', recordId: record.RecordID };
       } catch (e) { return { status: 'error', message: e.message }; }
@@ -1225,10 +1295,9 @@
       try {
         const record = normalizeDatabasePayload(data);
         if (!record.PatientID) throw new Error('ไม่พบ PatientID');
-        if (!record.RecordID) { record.RecordID = 'DYS' + Date.now(); record.Timestamp = new Date().toISOString(); }
-        const existing = await client.from('Dysphagia_Records').select('RecordID').eq('RecordID', record.RecordID).limit(1);
-        if (existing.error) throw existing.error;
-        const write = existing.data && existing.data.length ? await client.from('Dysphagia_Records').update(record).eq('RecordID', record.RecordID) : await client.from('Dysphagia_Records').insert([record]);
+        if (!record.RecordID) record.RecordID = 'DYS' + Date.now();
+        const exists = await recordExists('Dysphagia_Records', 'RecordID', record.RecordID);
+        const write = await saveWithUnknownColumnRetry('Dysphagia_Records', record, 'RecordID', exists);
         if (write.error) throw write.error;
         return { status: 'success', message: 'บันทึก Dysphagia สำเร็จ', recordId: record.RecordID };
       } catch (e) { return { status: 'error', message: e.message }; }
@@ -1343,15 +1412,14 @@
         delete record.PatientSignatureBase64;
 
         if (!record.RecordID) record.RecordID = `OPD${Date.now()}`;
+        // NOTE: 'Timestamp' column does NOT exist in OPDRecords table.
+        // It was removed here (was the root cause of 100% insert failure — PGRST204).
+        // Use VisitDate for ordering/display instead.
+        delete record.Timestamp;
+
         const exists = await recordExists('OPDRecords', 'RecordID', record.RecordID);
-        if (exists) {
-          const res = await client.from('OPDRecords').update(record).eq('RecordID', record.RecordID);
-          if (res.error) throw res.error;
-        } else {
-          record.Timestamp = record.Timestamp || new Date().toISOString();
-          const res = await client.from('OPDRecords').insert([record]);
-          if (res.error) throw res.error;
-        }
+        const res = await saveWithUnknownColumnRetry('OPDRecords', record, 'RecordID', exists);
+        if (res.error) throw res.error;
         return { status: 'success', message: 'บันทึกข้อมูล OPD Card สำเร็จ', recordId: record.RecordID };
       } catch (e) {
         return { status: 'error', message: e.message };
@@ -1395,14 +1463,8 @@
 
         if (!record.SOAPNoteID) record.SOAPNoteID = `SOAP${Date.now()}`;
         const exists = await recordExists('SOAPNotes', 'SOAPNoteID', record.SOAPNoteID);
-        if (exists) {
-          const res = await client.from('SOAPNotes').update(record).eq('SOAPNoteID', record.SOAPNoteID);
-          if (res.error) throw res.error;
-        } else {
-          record.Timestamp = record.Timestamp || new Date().toISOString();
-          const res = await client.from('SOAPNotes').insert([record]);
-          if (res.error) throw res.error;
-        }
+        const res = await saveWithUnknownColumnRetry('SOAPNotes', record, 'SOAPNoteID', exists);
+        if (res.error) throw res.error;
         return { status: 'success', message: 'บันทึกข้อมูล SOAP Note สำเร็จ', recordId: record.SOAPNoteID };
       } catch (e) {
         return { status: 'error', message: e.message };
