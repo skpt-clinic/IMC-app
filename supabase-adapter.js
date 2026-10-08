@@ -1259,6 +1259,7 @@
         if (!record.PatientID) throw new Error('ไม่พบ PatientID');
         if (!record.RecordID) record.RecordID = 'TMSE' + Date.now();
         const exists = await recordExists('TMSE_Records', 'RecordID', record.RecordID);
+        if (!exists && !record.Timestamp) record.Timestamp = new Date().toISOString(); // ตารางนี้มีคอลัมน์ Timestamp จริง (เฉพาะ OPDRecords ที่ไม่มี)
         const write = await saveWithUnknownColumnRetry('TMSE_Records', record, 'RecordID', exists);
         if (write.error) throw write.error;
         return { status: 'success', message: 'บันทึก TMSE สำเร็จ', recordId: record.RecordID };
@@ -1278,6 +1279,7 @@
         if (!record.PatientID) throw new Error('ไม่พบ PatientID');
         if (!record.RecordID) record.RecordID = 'MHQ' + Date.now();
         const exists = await recordExists('MHQ_Records', 'RecordID', record.RecordID);
+        if (!exists && !record.Timestamp) record.Timestamp = new Date().toISOString(); // ตารางนี้มีคอลัมน์ Timestamp จริง (เฉพาะ OPDRecords ที่ไม่มี)
         const write = await saveWithUnknownColumnRetry('MHQ_Records', record, 'RecordID', exists);
         if (write.error) throw write.error;
         return { status: 'success', message: 'บันทึก MHQ สำเร็จ', recordId: record.RecordID };
@@ -1297,6 +1299,7 @@
         if (!record.PatientID) throw new Error('ไม่พบ PatientID');
         if (!record.RecordID) record.RecordID = 'DYS' + Date.now();
         const exists = await recordExists('Dysphagia_Records', 'RecordID', record.RecordID);
+        if (!exists && !record.Timestamp) record.Timestamp = new Date().toISOString(); // ตารางนี้มีคอลัมน์ Timestamp จริง (เฉพาะ OPDRecords ที่ไม่มี)
         const write = await saveWithUnknownColumnRetry('Dysphagia_Records', record, 'RecordID', exists);
         if (write.error) throw write.error;
         return { status: 'success', message: 'บันทึก Dysphagia สำเร็จ', recordId: record.RecordID };
@@ -1463,6 +1466,7 @@
 
         if (!record.SOAPNoteID) record.SOAPNoteID = `SOAP${Date.now()}`;
         const exists = await recordExists('SOAPNotes', 'SOAPNoteID', record.SOAPNoteID);
+        if (!exists && !record.Timestamp) record.Timestamp = new Date().toISOString(); // ตารางนี้มีคอลัมน์ Timestamp จริง (เฉพาะ OPDRecords ที่ไม่มี)
         const res = await saveWithUnknownColumnRetry('SOAPNotes', record, 'SOAPNoteID', exists);
         if (res.error) throw res.error;
         return { status: 'success', message: 'บันทึกข้อมูล SOAP Note สำเร็จ', recordId: record.SOAPNoteID };
