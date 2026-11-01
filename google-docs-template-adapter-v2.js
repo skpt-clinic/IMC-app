@@ -536,6 +536,67 @@
     return String(value);
   }
 
+  function normalizeTherapistName(name) {
+    return String(name || '').replace(/^กภ\.\s*/i, '').replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+
+  async function resolveTherapistLicense(data) {
+    const existing = String(data.TherapistLicenseNo || '').trim();
+    if (existing) return existing;
+    const therapistName = normalizeTherapistName(data.TherapistName);
+    if (!therapistName) return '';
+
+    try {
+      const { data: users, error } = await getClient().from('Users').select('"FullName", "License"');
+      if (!error && Array.isArray(users)) {
+        const match = users.find(user => normalizeTherapistName(user.FullName) === therapistName && String(user.License || '').trim());
+        if (match) return String(match.License).trim();
+      }
+    } catch (_) {
+      // Keep printing available if the user directory is temporarily unavailable.
+    }
+
+    try {
+      const current = JSON.parse(localStorage.getItem('skpt_logged_in_user') || '{}');
+      const currentName = current.fullName || current.FullName || current.name || '';
+      const currentLicense = current.license || current.License || '';
+      if (normalizeTherapistName(currentName) === therapistName && String(currentLicense).trim()) {
+        return String(currentLicense).trim();
+      }
+    } catch (_) {}
+    return '';
+  }
+
+  const IMAGE_BUCKETS = new Set(['patient-photos', 'body-charts', 'signatures', 'visit-evidence']);
+
+  async function imageUrlForBridge(value) {
+    if (!value) return '';
+    const raw = String(value).trim();
+    if (!raw || /^data:image\//i.test(raw) || /drive\.google\.com|googleusercontent\.com/i.test(raw)) return raw;
+
+    let bucket = '';
+    let path = '';
+    if (/^https?:\/\//i.test(raw)) {
+      const match = raw.match(/\/storage\/v1\/object\/(public|authenticated|sign)\/([^/]+)\/(.+)$/i);
+      if (!match) return raw;
+      if (match[1].toLowerCase() === 'sign' && /[?&]token=/.test(raw)) return raw;
+      bucket = decodeURIComponent(match[2]);
+      path = match[3].split(/[?#]/)[0].split('/').map(part => decodeURIComponent(part)).join('/');
+    } else {
+      const slash = raw.indexOf('/');
+      if (slash < 1) return raw;
+      bucket = raw.slice(0, slash);
+      path = raw.slice(slash + 1);
+    }
+
+    if (!IMAGE_BUCKETS.has(bucket) || !path || !window.supabaseClient?.storage) return raw;
+    try {
+      const { data, error } = await window.supabaseClient.storage.from(bucket).createSignedUrl(path, 3600);
+      if (!error && data?.signedUrl) return data.signedUrl;
+    } catch (_) {}
+    return raw;
+  }
+
   async function buildData(type, recordId) {
     const normType = String(type).toLowerCase();
     const cfg = TYPE_CONFIG[normType];
@@ -563,17 +624,24 @@
       else if (normType === 'dysphagia') d = enrichDysphagia(d);
     }
 
-    // Expose normalized images and signatures
-    const pPhoto = d.PatientPhotoURL || d.PatientPhotoUrl || '';
-    d.PatientPhoto = pPhoto;
-    d.PatientPhotoUrl = pPhoto;
-    d.PatientPhotoURL = pPhoto;
+    // Resolve stored references to short-lived URLs GAS can fetch.
+    const imagePairs = [
+      ['PatientPhoto', d.PatientPhotoURL || d.PatientPhotoUrl || d.PatientPhotoBase64 || d.PatientPhoto],
+      ['BodyChartDrawing', d.BodyChartDrawingUrl || d.BodyChartUrl || d.BodyChartDrawingBase64 || d.BodyChartDrawing],
+      ['TherapistSignature', d.TherapistSignatureUrl || d.TherapistSignature || d.TherapistSignatureBase64],
+      ['PatientSignature', d.PatientSignatureUrl || d.PatientSignature || d.PatientSignatureBase64],
+      ['ConsenterSignature', d.ConsenterSignatureUrl || d.ConsenterSignature || d.ConsenterSignatureBase64],
+      ['WitnessSignature', d.WitnessSignatureUrl || d.WitnessSignature || d.WitnessSignatureBase64]
+    ];
+    await Promise.all(imagePairs.map(async ([key, source]) => {
+      const resolved = await imageUrlForBridge(source);
+      d[key] = resolved;
+      d[key + 'Url'] = resolved;
+      d[key + 'URL'] = resolved;
+    }));
 
-    d.BodyChartDrawingUrl = d.BodyChartDrawingUrl || d.BodyChartUrl || '';
-    d.TherapistSignatureUrl = d.TherapistSignatureUrl || d.TherapistSignature || '';
-    d.PatientSignatureUrl = d.PatientSignatureUrl || d.PatientSignature || '';
-    d.ConsenterSignatureUrl = d.ConsenterSignatureUrl || d.ConsenterSignature || '';
-    d.WitnessSignatureUrl = d.WitnessSignatureUrl || d.WitnessSignature || '';
+    // Fill a missing record-level license from the matching therapist account.
+    d.TherapistLicenseNo = await resolveTherapistLicense(d);
 
     // Consent template aliases
     d['ลายมือชื่อ'] = d.ConsenterSignatureUrl;
