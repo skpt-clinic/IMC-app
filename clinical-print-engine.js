@@ -74,7 +74,8 @@
     const s=clean(value);if(!s)return null;
     const comma=s.indexOf(',');
     if(s.startsWith('data:image/')&&comma>0){const mime=s.slice(0,comma).toLowerCase();const bin=atob(s.slice(comma+1));return {bytes:Uint8Array.from(bin,c=>c.charCodeAt(0)),type:mime.includes('png')?'png':'jpg'};}
-    if(/^[A-Za-z0-9+/=\r\n]+$/.test(s)&&s.length>100){const raw=s.replace(/\s/g,'');const bin=atob(raw);return {bytes:Uint8Array.from(bin,c=>c.charCodeAt(0)),type:raw.startsWith('iVBOR')?'png':'jpg'};}
+    const raw=s.replaceAll(' ','').replaceAll(String.fromCharCode(10),'').replaceAll(String.fromCharCode(13),'');
+    if(raw.length>100&&Array.from(raw).every(c=>(c>='A'&&c<='Z')||(c>='a'&&c<='z')||(c>='0'&&c<='9')||c==='+'||c==='/'||c==='=')){const bin=atob(raw);return {bytes:Uint8Array.from(bin,c=>c.charCodeAt(0)),type:raw.startsWith('iVBOR')?'png':'jpg'};}
     if(s.startsWith('https://')||s.startsWith('http://')){const res=await fetch(s);if(!res.ok)throw new Error('โหลดรูปแนบไม่สำเร็จ');const type=(res.headers.get('content-type')||'').toLowerCase();const data=new Uint8Array(await res.arrayBuffer());return {bytes:data,type:type.includes('png')?'png':'jpg'};}
     return null;
   }
