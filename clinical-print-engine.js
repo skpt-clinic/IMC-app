@@ -117,7 +117,7 @@
     else if(type==='mhq')mhq(pdf,font,d,p);
     else if(type==='tmse')tmse(pdf,font,d,p);
     const name={imccover:'IMC-Cover',consent:'Consent',bi:'BI-Assessment',opd:'OPD-Card',soap:'SOAP-Note',dysphagia:'Dysphagia',mhq:'MHQ',tmse:'TMSE'}[type]||type;
-    await save(pdf,name+'-'+(val(p,'PatientID','ClinicNumber','HN')||id));
+    return await save(pdf,name+'-'+(val(p,'PatientID','ClinicNumber','HN')||id));
   }
   window.IMCPrintEngine={render,templateUrl:TEMPLATE_URL};
   window.generateIMCCoverPdf=id=>render('imccover',id);
