@@ -541,13 +541,13 @@
   }
 
   async function resolveTherapistLicense(data) {
-    const existing = String(data.TherapistLicenseNo || '').trim();
+    const existing = String(data.TherapistLicenseNo || data.AssignedPTLicense || '').trim();
     if (existing) return existing;
-    const therapistName = normalizeTherapistName(data.TherapistName);
+    const therapistName = normalizeTherapistName(data.TherapistName || data.AssignedPT || data.AssignedPTName);
     if (!therapistName) return '';
 
     try {
-      const { data: users, error } = await getClient().from('Users').select('"FullName", "License"');
+      const { data: users, error } = await getClient().from('Users').select('FullName,License');
       if (!error && Array.isArray(users)) {
         const match = users.find(user => normalizeTherapistName(user.FullName) === therapistName && String(user.License || '').trim());
         if (match) return String(match.License).trim();
@@ -565,6 +565,57 @@
       }
     } catch (_) {}
     return '';
+  }
+
+  async function resolveClinicalSignatures(data) {
+    const patientId = String(data.PatientID || '').trim();
+    const hasTherapist = !!String(data.TherapistSignatureUrl || data.TherapistSignature || '').trim();
+    const hasPatient = !!String(data.PatientSignatureUrl || data.PatientSignature || '').trim();
+    if (!patientId || (hasTherapist && hasPatient)) return data;
+
+    try {
+      const client = getClient();
+      const visitCount = data.VisitCount ?? data.VisitNumber ?? data.VisitNo;
+      let query = client.from('OPDRecords')
+        .select('TherapistSignatureUrl,PatientSignatureUrl,TherapistName,TherapistLicenseNo,VisitDate,VisitCount')
+        .eq('PatientID', patientId);
+
+      if (visitCount !== undefined && visitCount !== null && String(visitCount).trim()) {
+        query = query.eq('VisitCount', visitCount);
+      } else if (data.VisitDate) {
+        const visitDate = new Date(data.VisitDate);
+        if (!Number.isNaN(visitDate.getTime())) {
+          const start = new Date(visitDate);
+          start.setHours(0, 0, 0, 0);
+          const end = new Date(start);
+          end.setDate(end.getDate() + 1);
+          query = query.gte('VisitDate', start.toISOString()).lt('VisitDate', end.toISOString());
+        }
+      }
+
+      let { data: rows, error } = await query.order('VisitDate', { ascending: false }).limit(1);
+      if ((!rows || !rows.length) && !error) {
+        const fallback = await client.from('OPDRecords')
+          .select('TherapistSignatureUrl,PatientSignatureUrl,TherapistName,TherapistLicenseNo,VisitDate,VisitCount')
+          .eq('PatientID', patientId)
+          .order('VisitDate', { ascending: false })
+          .limit(1);
+        rows = fallback.data;
+        error = fallback.error;
+      }
+      const source = !error && Array.isArray(rows) ? rows[0] : null;
+      if (source) {
+        data.TherapistSignatureUrl = data.TherapistSignatureUrl || source.TherapistSignatureUrl || '';
+        data.PatientSignatureUrl = data.PatientSignatureUrl || source.PatientSignatureUrl || '';
+        data.TherapistSignature = data.TherapistSignature || data.TherapistSignatureUrl;
+        data.PatientSignature = data.PatientSignature || data.PatientSignatureUrl;
+        data.TherapistName = data.TherapistName || source.TherapistName || data.AssignedPT || '';
+        data.TherapistLicenseNo = data.TherapistLicenseNo || source.TherapistLicenseNo || '';
+      }
+    } catch (_) {
+      // Signature fallback should not block document generation.
+    }
+    return data;
   }
 
   const IMAGE_BUCKETS = new Set(['patient-photos', 'body-charts', 'signatures', 'visit-evidence']);
@@ -624,6 +675,9 @@
       else if (normType === 'dysphagia') d = enrichDysphagia(d);
     }
 
+    // Copy signature sources from the matching OPD visit when an assessment table has no signature columns.
+    await resolveClinicalSignatures(d);
+
     // Resolve stored references to short-lived URLs GAS can fetch.
     const imagePairs = [
       ['PatientPhoto', d.PatientPhotoURL || d.PatientPhotoUrl || d.PatientPhotoBase64 || d.PatientPhoto],
@@ -640,8 +694,10 @@
       d[key + 'URL'] = resolved;
     }));
 
-    // Fill a missing record-level license from the matching therapist account.
-    d.TherapistLicenseNo = await resolveTherapistLicense(d);
+    // Fill both template aliases from a matching therapist account when record-level fields are blank.
+    const license = await resolveTherapistLicense(d);
+    d.TherapistLicenseNo = String(d.TherapistLicenseNo || license || '').trim();
+    d.AssignedPTLicense = String(d.AssignedPTLicense || license || '').trim();
 
     // Consent template aliases
     d['ลายมือชื่อ'] = d.ConsenterSignatureUrl;
