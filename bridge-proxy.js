@@ -1,6 +1,5 @@
 // ============================================================================
-// IMC Plus - GAS Bridge Proxy
-// ============================================================================
+/* IMC Plus - GAS Bridge Proxy */
 (() => {
   'use strict';
   if (window.__imcGasBridgeProxyInstalled) return;
@@ -23,6 +22,27 @@
     ready = false;
   }
 
+  function postToBridgeFrames(payload) {
+    // Apps Script wraps HtmlService pages in nested cross-origin frames.
+    // Broadcast to the web app frame and its descendants; only Bridge.html
+    // handles bridge-call, while its bridge-ready/response messages target us.
+    const queue = [bridgeFrame?.contentWindow];
+    const visited = new Set();
+    while (queue.length) {
+      const target = queue.shift();
+      if (!target || visited.has(target)) continue;
+      visited.add(target);
+      try { target.postMessage(payload, '*'); } catch (error) {
+        console.warn('[GASBridge] Could not message a frame:', error);
+      }
+      try {
+        for (let i = 0; i < target.frames.length; i++) queue.push(target.frames[i]);
+      } catch (_) {
+        // Cross-origin frame enumeration may be restricted by some browsers.
+      }
+    }
+  }
+
   window.addEventListener('message', event => {
     const data = event.data || {};
     if (data.type === 'bridge-ready') { ready = true; return; }
@@ -39,7 +59,7 @@
     pending.set(id, {resolve, reject});
     const send = () => {
       if (!bridgeFrame?.contentWindow) { pending.delete(id); reject(new Error('GAS Bridge iframe unavailable')); return; }
-      bridgeFrame.contentWindow.postMessage({type:'bridge-call', id, method, args}, '*');
+      postToBridgeFrames({type:'bridge-call', id, method, args});
     };
     if (ready) send();
     else {
