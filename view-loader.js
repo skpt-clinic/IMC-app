@@ -1,7 +1,7 @@
 // ============================================================================
-// View Loader
-// Loads the SPA view partials and modal partials used by IMC Plus.
-// ============================================================================
+/* View Loader
+ * Loads the SPA view partials and modal partials used by IMC Plus.
+ * ============================================================================ */
 
 const VIEWS = [
   'views/view-dashboard.html',
@@ -18,7 +18,7 @@ const VIEWS = [
 
 const EXTRA_SCRIPTS = [
   'clinical-print-templates.js?v=20260919_1',
-  'bridge-proxy.js?v=20260917_2',
+  'bridge-proxy.js?v=20261101_2',
   'gas-bridge-capture.js?v=20260917_2',
   'google-docs-template-adapter-v2.js?v=20261101_1',
   'google-docs-template-adapter-fix.js?v=20260919_1',
