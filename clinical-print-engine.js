@@ -72,9 +72,10 @@
   function save(pdf,name){return pdf.save().then(b=>{const u=URL.createObjectURL(new Blob([b],{type:'application/pdf'}));const a=document.createElement('a');a.href=u;a.download=name+'.pdf';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000);return {status:'success',fileName:name+'.pdf'}})}
   async function imageBytes(value){
     const s=clean(value);if(!s)return null;
-    if(/^data:image\\//i.test(s)){const m=s.match(/^data:image\\/(png|jpe?g);base64,([\\s\\S]+)$/i);if(!m)return null;const bin=atob(m[2]);return {bytes:Uint8Array.from(bin,c=>c.charCodeAt(0)),type:m[1].toLowerCase().startsWith('jp')?'jpg':'png'};}
-    if(/^[A-Za-z0-9+/=\\r\\n]+$/.test(s)&&s.length>100){const raw=s.replace(/\\s/g,'');const bin=atob(raw);return {bytes:Uint8Array.from(bin,c=>c.charCodeAt(0)),type:raw.startsWith('iVBOR')?'png':'jpg'};}
-    if(/^https?:\\/\\//i.test(s)){const res=await fetch(s);if(!res.ok)throw new Error('โหลดรูปแนบไม่สำเร็จ');const type=(res.headers.get('content-type')||'').toLowerCase();const data=new Uint8Array(await res.arrayBuffer());return {bytes:data,type:type.includes('png')?'png':'jpg'};}
+    const comma=s.indexOf(',');
+    if(s.startsWith('data:image/')&&comma>0){const mime=s.slice(0,comma).toLowerCase();const bin=atob(s.slice(comma+1));return {bytes:Uint8Array.from(bin,c=>c.charCodeAt(0)),type:mime.includes('png')?'png':'jpg'};}
+    if(/^[A-Za-z0-9+/=\r\n]+$/.test(s)&&s.length>100){const raw=s.replace(/\s/g,'');const bin=atob(raw);return {bytes:Uint8Array.from(bin,c=>c.charCodeAt(0)),type:raw.startsWith('iVBOR')?'png':'jpg'};}
+    if(s.startsWith('https://')||s.startsWith('http://')){const res=await fetch(s);if(!res.ok)throw new Error('โหลดรูปแนบไม่สำเร็จ');const type=(res.headers.get('content-type')||'').toLowerCase();const data=new Uint8Array(await res.arrayBuffer());return {bytes:data,type:type.includes('png')?'png':'jpg'};}
     return null;
   }
   async function drawImageTop(pdf,page,value,x,y,w,h){
