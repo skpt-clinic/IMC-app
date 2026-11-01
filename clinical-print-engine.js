@@ -7,7 +7,7 @@
   const TEMPLATE_URL = './print-templates-8-forms.pdf.pdf';
   const PDFLIB_URL = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
   const FONTKIT_URL = 'https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js';
-  const THAI_FONT_URL = 'https://raw.githubusercontent.com/google/fonts/main/ofl/notosansthai/NotoSansThai%5Bwdth,wght%5D.ttf';
+  const THAI_FONT_URL = 'https://raw.githubusercontent.com/google/fonts/main/ofl/sarabun/Sarabun-Regular.ttf';
   const A4 = { w: 595.32, h: 841.92 };
   const PAGE = { cover: 0, consent: 1, bi: 2, opd1: 3, opd2: 4, soap: 5, dys: 6, mhq1: 7, mhq2: 8, tmse: 9 };
   const PAGE_SETS = { imccover:[0], consent:[1], bi:[2], opd:[3,4], soap:[5], dysphagia:[6], mhq:[7,8], tmse:[9] };
