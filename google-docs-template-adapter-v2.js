@@ -621,13 +621,9 @@
     }
   }
 
-  async function generate(type, recordId, autoDownload = false) {
+  async function generate(type, recordId, autoDownload = true) {
     try {
       const normType = String(type).toLowerCase();
-      if (window.ClinicalPrintTemplates && typeof window.ClinicalPrintTemplates.printDocument === 'function') {
-        return await window.ClinicalPrintTemplates.printDocument(normType, recordId);
-      }
-
       const cfg = TYPE_CONFIG[normType];
       if (!cfg) throw new Error(`ไม่รู้จักชนิดเอกสาร: ${type}`);
 
@@ -672,14 +668,14 @@
     typeConfig: TYPE_CONFIG,
     buildData,
     generate,
-    generateIMCCoverPdf: id => generate('imccover', id),
-    generateConsentPdf: id => generate('consent', id),
-    generateBIPdf: id => generate('bi', id),
-    generateOpdPdf: id => generate('opd', id),
-    generateSOAPPdf: id => generate('soap', id),
-    generateTMSEPdf: id => generate('tmse', id),
-    generateMHQPdf: id => generate('mhq', id),
-    generateDysphagiaPdf: id => generate('dysphagia', id)
+    generateIMCCoverPdf: id => generate('imccover', id, true),
+    generateConsentPdf: id => generate('consent', id, true),
+    generateBIPdf: id => generate('bi', id, true),
+    generateOpdPdf: id => generate('opd', id, true),
+    generateSOAPPdf: id => generate('soap', id, true),
+    generateTMSEPdf: id => generate('tmse', id, true),
+    generateMHQPdf: id => generate('mhq', id, true),
+    generateDysphagiaPdf: id => generate('dysphagia', id, true)
   };
 
   console.info('[IMCDocsAdapter] Google Docs Template Adapter v2 initialized successfully.');
