@@ -1765,6 +1765,7 @@
     // =================================================================
 
     async generateIMCCoverPdf(patientId) {
+      if (window.IMCPrintEngine) return window.IMCPrintEngine.render('imccover', patientId);
       if (window.ClinicalPrintTemplates && typeof window.ClinicalPrintTemplates.printDocument === 'function') {
         try {
           return await window.ClinicalPrintTemplates.printDocument('imccover', patientId);
@@ -1789,6 +1790,7 @@
     },
 
     async generateConsentPdf(consentId) {
+      if (window.IMCPrintEngine) return window.IMCPrintEngine.render('consent', consentId);
       if (window.ClinicalPrintTemplates && typeof window.ClinicalPrintTemplates.printDocument === 'function') {
         try {
           return await window.ClinicalPrintTemplates.printDocument('consent', consentId);
@@ -1816,6 +1818,7 @@
     },
 
     async generateBIPdf(assessmentId) {
+      if (window.IMCPrintEngine) return window.IMCPrintEngine.render('bi', assessmentId);
       if (window.ClinicalPrintTemplates && typeof window.ClinicalPrintTemplates.printDocument === 'function') {
         try {
           return await window.ClinicalPrintTemplates.printDocument('bi', assessmentId);
@@ -1844,6 +1847,7 @@
     },
 
     async generateOpdPdf(recordId) {
+      if (window.IMCPrintEngine) return window.IMCPrintEngine.render('opd', recordId);
       if (window.ClinicalPrintTemplates && typeof window.ClinicalPrintTemplates.printDocument === 'function') {
         try {
           return await window.ClinicalPrintTemplates.printDocument('opd', recordId);
@@ -1872,6 +1876,7 @@
     },
 
     async generateSOAPPdf(noteId) {
+      if (window.IMCPrintEngine) return window.IMCPrintEngine.render('soap', noteId);
       if (window.ClinicalPrintTemplates && typeof window.ClinicalPrintTemplates.printDocument === 'function') {
         try {
           return await window.ClinicalPrintTemplates.printDocument('soap', noteId);
@@ -1969,6 +1974,7 @@
     },
 
     async generateTMSEPdf(recordId) {
+      if (window.IMCPrintEngine) return window.IMCPrintEngine.render('tmse', recordId);
       if (window.ClinicalPrintTemplates && typeof window.ClinicalPrintTemplates.printDocument === 'function') {
         try {
           return await window.ClinicalPrintTemplates.printDocument('tmse', recordId);
@@ -1997,6 +2003,7 @@
     },
 
     async generateMHQPdf(recordId) {
+      if (window.IMCPrintEngine) return window.IMCPrintEngine.render('mhq', recordId);
       if (window.ClinicalPrintTemplates && typeof window.ClinicalPrintTemplates.printDocument === 'function') {
         try {
           return await window.ClinicalPrintTemplates.printDocument('mhq', recordId);
@@ -2025,6 +2032,7 @@
     },
 
     async generateDysphagiaPdf(recordId) {
+      if (window.IMCPrintEngine) return window.IMCPrintEngine.render('dysphagia', recordId);
       if (window.ClinicalPrintTemplates && typeof window.ClinicalPrintTemplates.printDocument === 'function') {
         try {
           return await window.ClinicalPrintTemplates.printDocument('dysphagia', recordId);
