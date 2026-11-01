@@ -6,9 +6,6 @@
   'use strict';
 
   async function generateIMCCoverPdf(patientId) {
-    if (window.ClinicalPrintTemplates && typeof window.ClinicalPrintTemplates.printDocument === 'function') {
-      return window.ClinicalPrintTemplates.printDocument('imccover', patientId);
-    }
     if (window.IMCDocsTemplateAdapter && typeof window.IMCDocsTemplateAdapter.generateIMCCoverPdf === 'function') {
       return window.IMCDocsTemplateAdapter.generateIMCCoverPdf(patientId);
     }
